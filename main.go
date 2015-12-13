@@ -31,6 +31,7 @@ func main() {
 	client.Attach(gumbleutil.Listener{
 		Connect: func(e *gumble.ConnectEvent) {
 			e.Client.Attach(gumbleutil.AutoBitrate)
+			log.Printf("Sever's maximum bitrate: %d", *e.MaximumBitrate)
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
 			log.Printf("Received message: %s", e.Message)
@@ -43,6 +44,7 @@ func main() {
 			log.Printf("File will be saved to: %s", file)
 			cmd := exec.Command("youtube-dl", "--extract-audio",
 				"--audio-format", "mp3",
+				"--audio-quality", "0",
 				"-o", file,
 				link)
 			err := cmd.Run()
