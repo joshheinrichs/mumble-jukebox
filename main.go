@@ -55,6 +55,7 @@ func (audioStreamer *AudioStreamer) listen() {
 					audioStreamer.urlQueue.PushBack(url)
 				} else {
 					log.Printf("Playing url\n")
+					audioStreamer.playing = true
 					go audioStreamer.playUrl(url)
 				}
 			case _ = <-audioStreamer.finished:
@@ -65,6 +66,7 @@ func (audioStreamer *AudioStreamer) listen() {
 					log.Printf("Playing next url\n")
 					value := audioStreamer.urlQueue.Remove(audioStreamer.urlQueue.Front())
 					url, _ := value.(string)
+					audioStreamer.playing = true
 					go audioStreamer.playUrl(url)
 				}
 			}
@@ -73,7 +75,6 @@ func (audioStreamer *AudioStreamer) listen() {
 }
 
 func (audioStreamer *AudioStreamer) playUrl(url string) {
-	audioStreamer.playing = true
 	file := fmt.Sprintf("audio/%s.mp3", uuid.New())
 	log.Printf("File will be saved to: %s", file)
 	cmd := exec.Command("youtube-dl",
