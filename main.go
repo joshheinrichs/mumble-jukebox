@@ -138,6 +138,9 @@ func main() {
 	youtubeRegexp = regexp.MustCompile("(https?\\:\\/\\/)?(www\\.)?(youtube\\.com|youtu\\.?be)\\/(.*)")
 	soundcloudRegexp = regexp.MustCompile("(https?\\:\\/\\/)?(www\\.)?(soundcloud.com|snd.sc)\\/(.*)")
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	blob, err := ioutil.ReadFile("config.yaml")
 	if err != nil {
 		log.Fatal(err)
@@ -168,13 +171,15 @@ func main() {
 		UserChange: func(e *gumble.UserChangeEvent) {
 			log.Printf("%s self muted: %t", e.User.Name, e.User.SelfMuted)
 		},
+		Disconnect: func(e *gumble.DisconnectEvent) {
+			//TODO: clean up audio files
+			wg.Done()
+		},
 	})
 	err = client.Connect()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
 	wg.Wait()
 }
