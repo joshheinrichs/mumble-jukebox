@@ -55,8 +55,7 @@ func (audioStreamer *AudioStreamer) listen() {
 					audioStreamer.urlQueue.PushBack(url)
 				} else {
 					log.Printf("Playing url\n")
-					audioStreamer.playing = true
-					go audioStreamer.playUrl(url)
+					audioStreamer.playUrl(url)
 				}
 			case _ = <-audioStreamer.finished:
 				if audioStreamer.urlQueue.Front() == nil {
@@ -66,8 +65,7 @@ func (audioStreamer *AudioStreamer) listen() {
 					log.Printf("Playing next url\n")
 					value := audioStreamer.urlQueue.Remove(audioStreamer.urlQueue.Front())
 					url, _ := value.(string)
-					audioStreamer.playing = true
-					go audioStreamer.playUrl(url)
+					audioStreamer.playUrl(url)
 				}
 			}
 		}
@@ -75,30 +73,33 @@ func (audioStreamer *AudioStreamer) listen() {
 }
 
 func (audioStreamer *AudioStreamer) playUrl(url string) {
-	file := fmt.Sprintf("audio/%s.mp3", uuid.New())
-	log.Printf("File will be saved to: %s", file)
-	cmd := exec.Command("youtube-dl",
-		"--extract-audio",
-		"--audio-format", "mp3",
-		"--audio-quality", "0",
-		"-o", file,
-		url)
-	err := cmd.Run()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	source := gumbleffmpeg.SourceFile(file)
-	stream := gumbleffmpeg.New(audioStreamer.client, source)
-	err = stream.Play()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	stream.Wait()
-	log.Printf("Finished playing song")
-	audioStreamer.finished <- true
-	os.Remove(file)
+	audioStreamer.playing = true
+	go func() {
+		file := fmt.Sprintf("audio/%s.mp3", uuid.New())
+		log.Printf("File will be saved to: %s", file)
+		cmd := exec.Command("youtube-dl",
+			"--extract-audio",
+			"--audio-format", "mp3",
+			"--audio-quality", "0",
+			"-o", file,
+			url)
+		err := cmd.Run()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		source := gumbleffmpeg.SourceFile(file)
+		stream := gumbleffmpeg.New(audioStreamer.client, source)
+		err = stream.Play()
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		stream.Wait()
+		log.Printf("Finished playing song")
+		audioStreamer.finished <- true
+		os.Remove(file)
+	}()
 }
 
 func (audioStreamer *AudioStreamer) AddUrl(url string) {
