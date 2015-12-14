@@ -75,6 +75,7 @@ func (audioStreamer *AudioStreamer) listen() {
 func (audioStreamer *AudioStreamer) playUrl(url string) {
 	audioStreamer.playing = true
 	go func() {
+		defer func() { audioStreamer.finished <- true }()
 		file := fmt.Sprintf("audio/%s.mp3", uuid.New())
 		log.Printf("File will be saved to: %s", file)
 		cmd := exec.Command("youtube-dl",
@@ -88,6 +89,8 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 			log.Println(err)
 			return
 		}
+		defer os.Remove(file)
+
 		source := gumbleffmpeg.SourceFile(file)
 		stream := gumbleffmpeg.New(audioStreamer.client, source)
 		err = stream.Play()
@@ -96,9 +99,8 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 			return
 		}
 		stream.Wait()
+
 		log.Printf("Finished playing song")
-		audioStreamer.finished <- true
-		os.Remove(file)
 	}()
 }
 
