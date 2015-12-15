@@ -72,7 +72,9 @@ func (audioStreamer *AudioStreamer) Add(url string) {
 func (audioStreamer *AudioStreamer) Play() {
 	audioStreamer.lock.RLock()
 	defer audioStreamer.lock.RUnlock()
-	audioStreamer.stream.Play()
+	if audioStreamer.stream != nil {
+		audioStreamer.stream.Play()
+	}
 }
 
 func (audioStreamer *AudioStreamer) Pause() {
