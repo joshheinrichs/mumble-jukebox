@@ -55,27 +55,7 @@ func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 		finished:  make(chan bool),
 		volume:    1.0,
 	}
-	audioStreamer.listen()
 	return &audioStreamer
-}
-
-func (audioStreamer *AudioStreamer) listen() {
-	go func() {
-		for {
-			select {
-			case _ = <-audioStreamer.finished:
-				if audioStreamer.playQueue.Front() == nil {
-					log.Printf("Nothing to play\n")
-					audioStreamer.playing = false
-				} else {
-					log.Printf("Playing next url\n")
-					value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
-					url, _ := value.(string)
-					audioStreamer.playUrl(url)
-				}
-			}
-		}
-	}()
 }
 
 func (audioStreamer *AudioStreamer) Add(url string) {
@@ -141,36 +121,51 @@ func (audioStreamer *AudioStreamer) Help(sender *gumble.User) {
 }
 
 func (audioStreamer *AudioStreamer) playUrl(url string) {
-	audioStreamer.playing = true
-	go func() {
-		defer func() { audioStreamer.finished <- true }()
-		file := fmt.Sprintf("audio/%s.mp3", uuid.New())
-		log.Printf("File will be saved to: %s", file)
-		cmd := exec.Command("youtube-dl",
-			"--extract-audio",
-			"--audio-format", "mp3",
-			"--audio-quality", "0",
-			"-o", file,
-			url)
-		err := cmd.Run()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		defer os.Remove(file)
 
-		source := gumbleffmpeg.SourceFile(file)
-		audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
-		audioStreamer.stream.Volume = audioStreamer.volume
-		err = audioStreamer.stream.Play()
-		if err != nil {
-			log.Println(err)
-			return
+	defer func() {
+		audioStreamer.lock.Lock()
+		defer audioStreamer.lock.Unlock()
+		if audioStreamer.playQueue.Front() == nil {
+			log.Printf("Nothing to play\n")
+			audioStreamer.playing = false
+		} else {
+			log.Printf("Playing next url\n")
+			value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
+			url, _ := value.(string)
+			audioStreamer.playUrl(url)
 		}
-		audioStreamer.stream.Wait()
-
-		log.Printf("Finished playing song")
 	}()
+
+	audioStreamer.lock.Lock()
+	audioStreamer.playing = true
+	audioStreamer.lock.Unlock()
+
+	file := fmt.Sprintf("audio/%s.mp3", uuid.New())
+	log.Printf("File will be saved to: %s", file)
+	cmd := exec.Command("youtube-dl",
+		"--extract-audio",
+		"--audio-format", "mp3",
+		"--audio-quality", "0",
+		"-o", file,
+		url)
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer os.Remove(file)
+
+	source := gumbleffmpeg.SourceFile(file)
+	audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
+	audioStreamer.stream.Volume = audioStreamer.volume
+	err = audioStreamer.stream.Play()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	audioStreamer.stream.Wait()
+
+	log.Printf("Finished playing song")
 }
 
 func parseMessage(s string, sender *gumble.User) {
