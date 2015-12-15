@@ -64,6 +64,7 @@ func (audioStreamer *AudioStreamer) Add(url string) {
 		audioStreamer.playQueue.PushBack(url)
 	} else {
 		log.Printf("Playing url\n")
+		audioStreamer.playing = true
 		go audioStreamer.playUrl(url)
 	}
 }
@@ -133,10 +134,6 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 			go audioStreamer.playUrl(url)
 		}
 	}()
-
-	audioStreamer.lock.Lock()
-	audioStreamer.playing = true
-	audioStreamer.lock.Unlock()
 
 	file := fmt.Sprintf("audio/%s.mp3", uuid.New())
 	log.Printf("File will be saved to: %s", file)
