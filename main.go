@@ -169,9 +169,7 @@ func parseMessage(s string, sender *gumble.User) {
 		urls := parseUrls(s)
 		for _, url := range urls {
 			log.Printf("Found url: %s", url)
-			if legalUrl(url) {
-				audioStreamer.Add(url)
-			}
+			audioStreamer.Add(url)
 		}
 	case strings.HasPrefix(s, CMD_PLAY):
 		audioStreamer.Play()
