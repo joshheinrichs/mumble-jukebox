@@ -15,8 +15,20 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+)
+
+const (
+	CMD_PREFIX string = "/"
+	CMD_ADD    string = CMD_PREFIX + "add"
+	CMD_PLAY   string = CMD_PREFIX + "play"
+	CMD_PAUSE  string = CMD_PREFIX + "pause"
+	CMD_VOLUME string = CMD_PREFIX + "volume"
+	CMD_SKIP   string = CMD_PREFIX + "skip"
+	CMD_CLEAR  string = CMD_PREFIX + "clear"
+	CMD_HELP   string = CMD_PREFIX + "help"
 )
 
 var youtubeRegexp *regexp.Regexp
@@ -25,21 +37,21 @@ var soundcloudRegexp *regexp.Regexp
 var audioStreamer *AudioStreamer
 
 type AudioStreamer struct {
-	urlChan  chan string
-	urlQueue *list.List
-	client   *gumble.Client
-	stream   *gumbleffmpeg.Stream
-	playing  bool
-	finished chan bool
+	playQueue *list.List
+	client    *gumble.Client
+	stream    *gumbleffmpeg.Stream
+	playing   bool
+	finished  chan bool
+	lock      sync.RWMutex
 }
 
 func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 	audioStreamer := AudioStreamer{
-		urlChan:  make(chan string),
-		urlQueue: list.New(),
-		client:   client,
-		playing:  false,
-		finished: make(chan bool),
+		playQueue: list.New(),
+		client:    client,
+		stream:    nil,
+		playing:   false,
+		finished:  make(chan bool),
 	}
 	audioStreamer.listen()
 	return &audioStreamer
@@ -49,27 +61,80 @@ func (audioStreamer *AudioStreamer) listen() {
 	go func() {
 		for {
 			select {
-			case url := <-audioStreamer.urlChan:
-				if audioStreamer.playing {
-					log.Printf("Added url to queue")
-					audioStreamer.urlQueue.PushBack(url)
-				} else {
-					log.Printf("Playing url\n")
-					audioStreamer.playUrl(url)
-				}
 			case _ = <-audioStreamer.finished:
-				if audioStreamer.urlQueue.Front() == nil {
+				if audioStreamer.playQueue.Front() == nil {
 					log.Printf("Nothing to play\n")
 					audioStreamer.playing = false
 				} else {
 					log.Printf("Playing next url\n")
-					value := audioStreamer.urlQueue.Remove(audioStreamer.urlQueue.Front())
+					value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
 					url, _ := value.(string)
 					audioStreamer.playUrl(url)
 				}
 			}
 		}
 	}()
+}
+
+func (audioStreamer *AudioStreamer) Add(url string) {
+	audioStreamer.lock.Lock()
+	defer audioStreamer.lock.Unlock()
+	if audioStreamer.playing {
+		log.Printf("Added url to queue")
+		audioStreamer.playQueue.PushBack(url)
+	} else {
+		log.Printf("Playing url\n")
+		audioStreamer.playUrl(url)
+	}
+}
+
+func (audioStreamer *AudioStreamer) Play() {
+	audioStreamer.lock.RLock()
+	defer audioStreamer.lock.RUnlock()
+	audioStreamer.stream.Play()
+}
+
+func (audioStreamer *AudioStreamer) Pause() {
+	audioStreamer.lock.RLock()
+	defer audioStreamer.lock.RUnlock()
+	audioStreamer.stream.Pause()
+}
+
+func (audioStreamer *AudioStreamer) Volume(volume float32) {
+	audioStreamer.lock.Lock()
+	defer audioStreamer.lock.Unlock()
+	if audioStreamer.stream.State() == gumbleffmpeg.StatePlaying {
+		audioStreamer.stream.Pause()
+		audioStreamer.stream.Volume = volume
+		audioStreamer.stream.Play()
+	} else {
+		audioStreamer.stream.Volume = volume
+	}
+}
+
+func (audioStreamer *AudioStreamer) Skip() {
+	audioStreamer.lock.RLock()
+	defer audioStreamer.lock.RUnlock()
+	audioStreamer.stream.Stop()
+}
+
+func (audioStreamer *AudioStreamer) Clear() {
+	audioStreamer.lock.Lock()
+	defer audioStreamer.lock.Unlock()
+	audioStreamer.playQueue = list.New()
+	audioStreamer.stream.Stop()
+}
+
+func (audioStreamer *AudioStreamer) Help() {
+	message := "Commands:<br>" +
+		CMD_ADD + " <link> - add a song to the queue<br>" +
+		CMD_PLAY + " - start the player<br>" +
+		CMD_PAUSE + " - pause the player<br>" +
+		CMD_VOLUME + " <value> - sets the volume of the song<br>" +
+		CMD_SKIP + " - skips the current song in the queue<br>" +
+		CMD_CLEAR + " - clears the queue<br>" +
+		CMD_HELP + " - how did you even find this"
+	audioStreamer.client.Self.Channel.Send(message, false)
 }
 
 func (audioStreamer *AudioStreamer) playUrl(url string) {
@@ -92,23 +157,53 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 		defer os.Remove(file)
 
 		source := gumbleffmpeg.SourceFile(file)
-		stream := gumbleffmpeg.New(audioStreamer.client, source)
-		err = stream.Play()
+		audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
+		err = audioStreamer.stream.Play()
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		stream.Wait()
+		audioStreamer.stream.Wait()
 
 		log.Printf("Finished playing song")
 	}()
 }
 
-func (audioStreamer *AudioStreamer) AddUrl(url string) {
-	audioStreamer.urlChan <- url
+func parse(s string) {
+	switch {
+	case strings.HasPrefix(s, CMD_ADD):
+		urls := parseUrls(s)
+		for _, url := range urls {
+			log.Printf("Found url: %s", url)
+			if legalUrl(url) {
+				audioStreamer.Add(url)
+			}
+		}
+	case strings.HasPrefix(s, CMD_PLAY):
+		audioStreamer.Play()
+	case strings.HasPrefix(s, CMD_PAUSE):
+		audioStreamer.Pause()
+	case strings.HasPrefix(s, CMD_VOLUME):
+		volumeString := strings.TrimPrefix(s, CMD_VOLUME+" ")
+		volume64, err := strconv.ParseFloat(volumeString, 32)
+		if err != nil {
+			log.Println(err)
+			return
+		} else if volume64 > 1.0 {
+			log.Println("Tried to set volume to value greater than 1")
+			return
+		}
+		audioStreamer.Volume(float32(volume64))
+	case strings.HasPrefix(s, CMD_SKIP):
+		audioStreamer.Skip()
+	case strings.HasPrefix(s, CMD_CLEAR):
+		audioStreamer.Clear()
+	case strings.HasPrefix(s, CMD_HELP):
+		audioStreamer.Help()
+	}
 }
 
-func findUrls(s string) []string {
+func parseUrls(s string) []string {
 	urls := make([]string, 0)
 	doc, err := html.Parse(strings.NewReader(s))
 	if err != nil {
@@ -162,19 +257,13 @@ func main() {
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
 			log.Printf("Received message: %s", e.Message)
-			urls := findUrls(e.Message)
-			for _, url := range urls {
-				log.Printf("Found url: %s", url)
-				if legalUrl(url) {
-					audioStreamer.AddUrl(url)
-				}
-			}
+			parse(e.Message)
 		},
 		UserChange: func(e *gumble.UserChangeEvent) {
 			log.Printf("%s self muted: %t", e.User.Name, e.User.SelfMuted)
 		},
 		Disconnect: func(e *gumble.DisconnectEvent) {
-			//TODO: clean up audio files
+			// TODO: clean up audio files
 			wg.Done()
 		},
 	})
