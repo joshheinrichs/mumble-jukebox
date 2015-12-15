@@ -128,7 +128,7 @@ func (audioStreamer *AudioStreamer) Clear() {
 	audioStreamer.stream.Stop()
 }
 
-func (audioStreamer *AudioStreamer) Help() {
+func (audioStreamer *AudioStreamer) Help(sender *gumble.User) {
 	message := "Commands:<br>" +
 		CMD_ADD + " <link> - add a song to the queue<br>" +
 		CMD_PLAY + " - start the player<br>" +
@@ -137,7 +137,7 @@ func (audioStreamer *AudioStreamer) Help() {
 		CMD_SKIP + " - skips the current song in the queue<br>" +
 		CMD_CLEAR + " - clears the queue<br>" +
 		CMD_HELP + " - how did you even find this"
-	audioStreamer.client.Self.Channel.Send(message, false)
+	sender.Send(message)
 }
 
 func (audioStreamer *AudioStreamer) playUrl(url string) {
@@ -173,7 +173,7 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 	}()
 }
 
-func parse(s string) {
+func parseMessage(s string, sender *gumble.User) {
 	switch {
 	case strings.HasPrefix(s, CMD_ADD):
 		urls := parseUrls(s)
@@ -203,7 +203,7 @@ func parse(s string) {
 	case strings.HasPrefix(s, CMD_CLEAR):
 		audioStreamer.Clear()
 	case strings.HasPrefix(s, CMD_HELP):
-		audioStreamer.Help()
+		audioStreamer.Help(sender)
 	}
 }
 
@@ -261,7 +261,7 @@ func main() {
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
 			log.Printf("Received message: %s", e.Message)
-			parse(e.Message)
+			parseMessage(e.Message, e.Sender)
 		},
 		UserChange: func(e *gumble.UserChangeEvent) {
 			log.Printf("%s self muted: %t", e.User.Name, e.User.SelfMuted)
