@@ -43,6 +43,7 @@ type AudioStreamer struct {
 	playing   bool
 	finished  chan bool
 	lock      sync.RWMutex
+	volume    float32
 }
 
 func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
@@ -52,6 +53,7 @@ func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 		stream:    nil,
 		playing:   false,
 		finished:  make(chan bool),
+		volume:    1.0,
 	}
 	audioStreamer.listen()
 	return &audioStreamer
@@ -103,6 +105,7 @@ func (audioStreamer *AudioStreamer) Pause() {
 func (audioStreamer *AudioStreamer) Volume(volume float32) {
 	audioStreamer.lock.Lock()
 	defer audioStreamer.lock.Unlock()
+	audioStreamer.volume = volume
 	if audioStreamer.stream.State() == gumbleffmpeg.StatePlaying {
 		audioStreamer.stream.Pause()
 		audioStreamer.stream.Volume = volume
@@ -158,6 +161,7 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 
 		source := gumbleffmpeg.SourceFile(file)
 		audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
+		audioStreamer.stream.Volume = audioStreamer.volume
 		err = audioStreamer.stream.Play()
 		if err != nil {
 			log.Println(err)
