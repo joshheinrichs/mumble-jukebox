@@ -1,8 +1,6 @@
-# mumble-bot
+# mumble-player
 
-A simple mumble bot for playing YouTube audio. Simply send the bot a YouTube link, and it will download and play the audio. There's not much in here at the moment, but this will probably be extended as time goes on.
-
-This bot is _very_ early into development, so I'd reccomend not using it yet. Simple features like a queueing system, filesize limits, and file deletion haven't been added yet, meaning that it is very breakable if exposed to the wrong person.
+A simple mumble bot for playing YouTube audio. Simply send the bot a YouTube link, and it will download and play the audio. This is pretty limited at the moment, but will be extended over time. Feel free to report bugs and suggest features via the [issue-tracker.](https://github.com/joshheinrichs/mumble-player/issues)
 
 ### Setup
 
