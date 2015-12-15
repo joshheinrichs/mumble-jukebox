@@ -37,12 +37,11 @@ var soundcloudRegexp *regexp.Regexp
 var audioStreamer *AudioStreamer
 
 type AudioStreamer struct {
+	lock      sync.RWMutex
 	playQueue *list.List
 	client    *gumble.Client
 	stream    *gumbleffmpeg.Stream
 	playing   bool
-	finished  chan bool
-	lock      sync.RWMutex
 	volume    float32
 }
 
@@ -52,7 +51,6 @@ func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 		client:    client,
 		stream:    nil,
 		playing:   false,
-		finished:  make(chan bool),
 		volume:    1.0,
 	}
 	return &audioStreamer
@@ -66,7 +64,7 @@ func (audioStreamer *AudioStreamer) Add(url string) {
 		audioStreamer.playQueue.PushBack(url)
 	} else {
 		log.Printf("Playing url\n")
-		audioStreamer.playUrl(url)
+		go audioStreamer.playUrl(url)
 	}
 }
 
@@ -132,7 +130,7 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 			log.Printf("Playing next url\n")
 			value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
 			url, _ := value.(string)
-			audioStreamer.playUrl(url)
+			go audioStreamer.playUrl(url)
 		}
 	}()
 
