@@ -34,10 +34,8 @@ type AudioStreamer struct {
 	client          *gumble.Client
 	stream          *gumbleffmpeg.Stream
 	volume          float32
-	playing         bool
 	playQueue       *list.List
 	playChannel     chan bool
-	downloading     bool
 	downloadQueue   *list.List
 	downloadChannel chan bool
 }
@@ -47,10 +45,8 @@ func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 		client:          client,
 		stream:          nil,
 		volume:          1.0,
-		playing:         false,
 		playQueue:       list.New(),
 		playChannel:     make(chan bool),
-		downloading:     false,
 		downloadQueue:   list.New(),
 		downloadChannel: make(chan bool),
 	}
