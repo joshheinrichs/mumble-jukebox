@@ -30,40 +30,111 @@ const (
 var audioStreamer *AudioStreamer
 
 type AudioStreamer struct {
-	lock          sync.RWMutex
-	client        *gumble.Client
-	stream        *gumbleffmpeg.Stream
-	volume        float32
-	playing       bool
-	playQueue     *list.List
-	downloading   bool
-	downloadQueue *list.List
+	lock            sync.RWMutex
+	client          *gumble.Client
+	stream          *gumbleffmpeg.Stream
+	volume          float32
+	playing         bool
+	playQueue       *list.List
+	playChannel     chan bool
+	downloading     bool
+	downloadQueue   *list.List
+	downloadChannel chan bool
 }
 
 func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 	audioStreamer := AudioStreamer{
-		client:        client,
-		stream:        nil,
-		volume:        1.0,
-		playing:       false,
-		playQueue:     list.New(),
-		downloading:   false,
-		downloadQueue: list.New(),
+		client:          client,
+		stream:          nil,
+		volume:          1.0,
+		playing:         false,
+		playQueue:       list.New(),
+		playChannel:     make(chan bool),
+		downloading:     false,
+		downloadQueue:   list.New(),
+		downloadChannel: make(chan bool),
 	}
+	go audioStreamer.playThread()
+	go audioStreamer.downloadThread()
 	return &audioStreamer
+}
+
+func (audioStreamer *AudioStreamer) playThread() {
+	for {
+		audioStreamer.lock.Lock()
+		if audioStreamer.playQueue.Len() == 0 {
+			audioStreamer.lock.Unlock()
+			_ = <-audioStreamer.playChannel
+			audioStreamer.lock.Lock()
+		}
+		song, _ := audioStreamer.playQueue.Front().Value.(*Song)
+		audioStreamer.lock.Unlock()
+
+		audioStreamer.playSong(song)
+
+		audioStreamer.lock.Lock()
+		audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
+		audioStreamer.lock.Unlock()
+	}
+}
+
+func (audioStreamer *AudioStreamer) playSong(song *Song) {
+	source := gumbleffmpeg.SourceFile(*song.filepath)
+
+	audioStreamer.lock.Lock()
+	audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
+	audioStreamer.stream.Volume = audioStreamer.volume
+	audioStreamer.lock.Unlock()
+
+	err := audioStreamer.stream.Play()
+	if err != nil {
+		log.Panic(err)
+	}
+	audioStreamer.stream.Wait()
+
+	err = song.Delete()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	log.Printf("Finished playing song")
+}
+
+func (audioStreamer *AudioStreamer) downloadThread() {
+	for {
+		audioStreamer.lock.Lock()
+		if audioStreamer.downloadQueue.Len() == 0 {
+			log.Println("Nothing to download")
+			audioStreamer.lock.Unlock()
+			_ = <-audioStreamer.downloadChannel
+			audioStreamer.lock.Lock()
+		}
+		song, _ := audioStreamer.downloadQueue.Front().Value.(*Song)
+		audioStreamer.lock.Unlock()
+
+		err := song.Download()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		audioStreamer.lock.Lock()
+		audioStreamer.downloadQueue.Remove(audioStreamer.downloadQueue.Front())
+		audioStreamer.playQueue.PushBack(song)
+		if audioStreamer.playQueue.Len() == 1 {
+			go func() { audioStreamer.playChannel <- true }()
+		}
+		audioStreamer.lock.Unlock()
+	}
 }
 
 func (audioStreamer *AudioStreamer) Add(song *Song) {
 	audioStreamer.lock.Lock()
-	defer audioStreamer.lock.Unlock()
-	if audioStreamer.playing {
-		log.Printf("Added song to queue")
-		audioStreamer.playQueue.PushBack(song)
-	} else {
-		log.Printf("Playing song\n")
-		audioStreamer.playing = true
-		go audioStreamer.playSong(song)
+	audioStreamer.downloadQueue.PushBack(song)
+	if audioStreamer.downloadQueue.Len() == 1 {
+		go func() { audioStreamer.downloadChannel <- true }()
 	}
+	audioStreamer.lock.Unlock()
 }
 
 func (audioStreamer *AudioStreamer) Play() {
@@ -116,47 +187,6 @@ func (audioStreamer *AudioStreamer) Help(sender *gumble.User) {
 		CMD_CLEAR + " - clears the queue<br>" +
 		CMD_HELP + " - how did you even find this"
 	sender.Send(message)
-}
-
-func (audioStreamer *AudioStreamer) playSong(song *Song) {
-
-	defer func() {
-		audioStreamer.lock.Lock()
-		defer audioStreamer.lock.Unlock()
-		if audioStreamer.playQueue.Front() == nil {
-			log.Printf("Nothing to play\n")
-			audioStreamer.playing = false
-		} else {
-			log.Printf("Playing next song\n")
-			value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
-			song, _ := value.(*Song)
-			go audioStreamer.playSong(song)
-		}
-	}()
-
-	err := song.Download()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer func() {
-		err := song.Delete()
-		if err != nil {
-			log.Panic(err)
-		}
-	}()
-
-	source := gumbleffmpeg.SourceFile(*song.filepath)
-	audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
-	audioStreamer.stream.Volume = audioStreamer.volume
-	err = audioStreamer.stream.Play()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	audioStreamer.stream.Wait()
-
-	log.Printf("Finished playing song")
 }
 
 func parseMessage(s string, sender *gumble.User) {
@@ -239,7 +269,7 @@ func main() {
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
 			log.Printf("Received message: %s", e.Message)
-			parseMessage(e.Message, e.Sender)
+			go parseMessage(e.Message, e.Sender)
 		},
 		UserChange: func(e *gumble.UserChangeEvent) {
 			log.Printf("%s self muted: %t", e.User.Name, e.User.SelfMuted)
