@@ -17,8 +17,8 @@ import (
 // Used for grabbing information from the *.info.json file provided by
 // youtube-dl
 type Info struct {
-	title    *string  `json:"title"`
-	duration *float64 `json:"duration"`
+	Title    *string  `json:"title"`
+	Duration *float64 `json:"duration"`
 }
 
 type Song struct {
@@ -76,10 +76,12 @@ func (song *Song) Download() error {
 		return err
 	}
 
-	song.title = info.title
-	if info.duration != nil {
+	log.Println(info)
+
+	song.title = info.Title
+	if info.Duration != nil {
 		var duration time.Duration
-		duration = time.Duration(float64(time.Second) * *info.duration)
+		duration = time.Duration(float64(time.Second) * *info.Duration)
 		song.duration = &duration
 	}
 
@@ -101,7 +103,7 @@ func (song *Song) Delete() error {
 func (song *Song) String() string {
 	str := ""
 	if song.title != nil {
-		str += html.EscapeString(fmt.Sprintf("Title: %s", song.title)) + "<br>"
+		str += html.EscapeString(fmt.Sprintf("Title: %s", *song.title)) + "<br>"
 	}
 	if song.duration != nil {
 		str += html.EscapeString(fmt.Sprintf("Duration: %s", song.duration.String())) + "<br>"
@@ -109,6 +111,6 @@ func (song *Song) String() string {
 	if song.sender != nil {
 		str += html.EscapeString(fmt.Sprintf("Sender: %s", song.sender.Name)) + "<br>"
 	}
-	str += html.EscapeString(fmt.Sprintf("URL: %s", song.url)) + "<br>"
+	str += fmt.Sprintf("URL: <a href='%s'>%s</a>", html.EscapeString(song.url), html.EscapeString(song.url)) + "<br>"
 	return str
 }

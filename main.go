@@ -160,6 +160,25 @@ func (audioStreamer *AudioStreamer) Volume(volume float32) {
 	}
 }
 
+func (audioStreamer *AudioStreamer) Queue(sender *gumble.User) {
+	audioStreamer.lock.Lock()
+	defer audioStreamer.lock.Unlock()
+	message := ""
+	elem := audioStreamer.playQueue.Front()
+	for elem != nil {
+		song, _ := elem.Value.(*Song)
+		message += song.String() + "<br>"
+		elem = elem.Next()
+	}
+	elem = audioStreamer.downloadQueue.Front()
+	for elem != nil {
+		song, _ := elem.Value.(*Song)
+		message += song.String() + "<br>"
+		elem = elem.Next()
+	}
+	sender.Send(message)
+}
+
 func (audioStreamer *AudioStreamer) Skip() {
 	audioStreamer.lock.RLock()
 	defer audioStreamer.lock.RUnlock()
@@ -209,6 +228,8 @@ func parseMessage(s string, sender *gumble.User) {
 			return
 		}
 		audioStreamer.Volume(float32(volume64))
+	case strings.HasPrefix(s, CMD_QUEUE):
+		audioStreamer.Queue(sender)
 	case strings.HasPrefix(s, CMD_SKIP):
 		audioStreamer.Skip()
 	case strings.HasPrefix(s, CMD_CLEAR):
