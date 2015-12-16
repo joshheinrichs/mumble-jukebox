@@ -1,9 +1,7 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"container/list"
-	"fmt"
 	"github.com/layeh/gumble/gumble"
 	"github.com/layeh/gumble/gumbleffmpeg"
 	"github.com/layeh/gumble/gumbleutil"
@@ -12,9 +10,6 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
-	"os"
-	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,46 +21,48 @@ const (
 	CMD_PLAY   string = CMD_PREFIX + "play"
 	CMD_PAUSE  string = CMD_PREFIX + "pause"
 	CMD_VOLUME string = CMD_PREFIX + "volume"
+	CMD_QUEUE  string = CMD_PREFIX + "queue"
 	CMD_SKIP   string = CMD_PREFIX + "skip"
 	CMD_CLEAR  string = CMD_PREFIX + "clear"
 	CMD_HELP   string = CMD_PREFIX + "help"
 )
 
-var youtubeRegexp *regexp.Regexp
-var soundcloudRegexp *regexp.Regexp
-
 var audioStreamer *AudioStreamer
 
 type AudioStreamer struct {
-	lock      sync.RWMutex
-	playQueue *list.List
-	client    *gumble.Client
-	stream    *gumbleffmpeg.Stream
-	playing   bool
-	volume    float32
+	lock          sync.RWMutex
+	client        *gumble.Client
+	stream        *gumbleffmpeg.Stream
+	volume        float32
+	playing       bool
+	playQueue     *list.List
+	downloading   bool
+	downloadQueue *list.List
 }
 
 func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 	audioStreamer := AudioStreamer{
-		playQueue: list.New(),
-		client:    client,
-		stream:    nil,
-		playing:   false,
-		volume:    1.0,
+		client:        client,
+		stream:        nil,
+		volume:        1.0,
+		playing:       false,
+		playQueue:     list.New(),
+		downloading:   false,
+		downloadQueue: list.New(),
 	}
 	return &audioStreamer
 }
 
-func (audioStreamer *AudioStreamer) Add(url string) {
+func (audioStreamer *AudioStreamer) Add(song *Song) {
 	audioStreamer.lock.Lock()
 	defer audioStreamer.lock.Unlock()
 	if audioStreamer.playing {
-		log.Printf("Added url to queue")
-		audioStreamer.playQueue.PushBack(url)
+		log.Printf("Added song to queue")
+		audioStreamer.playQueue.PushBack(song)
 	} else {
-		log.Printf("Playing url\n")
+		log.Printf("Playing song\n")
 		audioStreamer.playing = true
-		go audioStreamer.playUrl(url)
+		go audioStreamer.playSong(song)
 	}
 }
 
@@ -121,7 +118,7 @@ func (audioStreamer *AudioStreamer) Help(sender *gumble.User) {
 	sender.Send(message)
 }
 
-func (audioStreamer *AudioStreamer) playUrl(url string) {
+func (audioStreamer *AudioStreamer) playSong(song *Song) {
 
 	defer func() {
 		audioStreamer.lock.Lock()
@@ -130,29 +127,26 @@ func (audioStreamer *AudioStreamer) playUrl(url string) {
 			log.Printf("Nothing to play\n")
 			audioStreamer.playing = false
 		} else {
-			log.Printf("Playing next url\n")
+			log.Printf("Playing next song\n")
 			value := audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
-			url, _ := value.(string)
-			go audioStreamer.playUrl(url)
+			song, _ := value.(*Song)
+			go audioStreamer.playSong(song)
 		}
 	}()
 
-	file := fmt.Sprintf("audio/%s.mp3", uuid.New())
-	log.Printf("File will be saved to: %s", file)
-	cmd := exec.Command("youtube-dl",
-		"--extract-audio",
-		"--audio-format", "mp3",
-		"--audio-quality", "0",
-		"-o", file,
-		url)
-	err := cmd.Run()
+	err := song.Download()
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	defer os.Remove(file)
+	defer func() {
+		err := song.Delete()
+		if err != nil {
+			log.Panic(err)
+		}
+	}()
 
-	source := gumbleffmpeg.SourceFile(file)
+	source := gumbleffmpeg.SourceFile(*song.filepath)
 	audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
 	audioStreamer.stream.Volume = audioStreamer.volume
 	err = audioStreamer.stream.Play()
@@ -171,7 +165,8 @@ func parseMessage(s string, sender *gumble.User) {
 		urls := parseUrls(s)
 		for _, url := range urls {
 			log.Printf("Found url: %s", url)
-			audioStreamer.Add(url)
+			song := NewSong(sender, url)
+			audioStreamer.Add(song)
 		}
 	case strings.HasPrefix(s, CMD_PLAY):
 		audioStreamer.Play()
@@ -221,14 +216,7 @@ func parseUrls(s string) []string {
 	return urls
 }
 
-func legalUrl(s string) bool {
-	return youtubeRegexp.MatchString(s) || soundcloudRegexp.MatchString(s)
-}
-
 func main() {
-	youtubeRegexp = regexp.MustCompile("(https?\\:\\/\\/)?(www\\.)?(youtube\\.com|youtu\\.?be)\\/(.*)")
-	soundcloudRegexp = regexp.MustCompile("(https?\\:\\/\\/)?(www\\.)?(soundcloud.com|snd.sc)\\/(.*)")
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 
