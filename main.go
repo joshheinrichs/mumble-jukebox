@@ -111,6 +111,9 @@ func (audioStreamer *AudioStreamer) downloadThread() {
 		err := song.Download()
 		if err != nil {
 			log.Println(err)
+			audioStreamer.lock.Lock()
+			audioStreamer.downloadQueue.Remove(audioStreamer.downloadQueue.Front())
+			audioStreamer.lock.Unlock()
 			continue
 		}
 
