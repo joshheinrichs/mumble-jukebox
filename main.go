@@ -27,9 +27,9 @@ const (
 	CMD_HELP   string = CMD_PREFIX + "help"
 )
 
-var audioStreamer *AudioStreamer
+var jukebox *Jukebox
 
-type AudioStreamer struct {
+type Jukebox struct {
 	lock            sync.RWMutex
 	client          *gumble.Client
 	stream          *gumbleffmpeg.Stream
@@ -40,8 +40,8 @@ type AudioStreamer struct {
 	downloadChannel chan bool
 }
 
-func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
-	audioStreamer := AudioStreamer{
+func NewJukebox(client *gumble.Client) *Jukebox {
+	jukebox := Jukebox{
 		client:          client,
 		stream:          nil,
 		volume:          1.0,
@@ -50,43 +50,43 @@ func NewAudioStreamer(client *gumble.Client) *AudioStreamer {
 		downloadQueue:   list.New(),
 		downloadChannel: make(chan bool),
 	}
-	go audioStreamer.playThread()
-	go audioStreamer.downloadThread()
-	return &audioStreamer
+	go jukebox.playThread()
+	go jukebox.downloadThread()
+	return &jukebox
 }
 
-func (audioStreamer *AudioStreamer) playThread() {
+func (jukebox *Jukebox) playThread() {
 	for {
-		audioStreamer.lock.Lock()
-		if audioStreamer.playQueue.Len() == 0 {
-			audioStreamer.lock.Unlock()
-			_ = <-audioStreamer.playChannel
-			audioStreamer.lock.Lock()
+		jukebox.lock.Lock()
+		if jukebox.playQueue.Len() == 0 {
+			jukebox.lock.Unlock()
+			_ = <-jukebox.playChannel
+			jukebox.lock.Lock()
 		}
-		song, _ := audioStreamer.playQueue.Front().Value.(*Song)
-		audioStreamer.lock.Unlock()
+		song, _ := jukebox.playQueue.Front().Value.(*Song)
+		jukebox.lock.Unlock()
 
-		audioStreamer.playSong(song)
+		jukebox.playSong(song)
 
-		audioStreamer.lock.Lock()
-		audioStreamer.playQueue.Remove(audioStreamer.playQueue.Front())
-		audioStreamer.lock.Unlock()
+		jukebox.lock.Lock()
+		jukebox.playQueue.Remove(jukebox.playQueue.Front())
+		jukebox.lock.Unlock()
 	}
 }
 
-func (audioStreamer *AudioStreamer) playSong(song *Song) {
+func (jukebox *Jukebox) playSong(song *Song) {
 	source := gumbleffmpeg.SourceFile(*song.filepath)
 
-	audioStreamer.lock.Lock()
-	audioStreamer.stream = gumbleffmpeg.New(audioStreamer.client, source)
-	audioStreamer.stream.Volume = audioStreamer.volume
-	audioStreamer.lock.Unlock()
+	jukebox.lock.Lock()
+	jukebox.stream = gumbleffmpeg.New(jukebox.client, source)
+	jukebox.stream.Volume = jukebox.volume
+	jukebox.lock.Unlock()
 
-	err := audioStreamer.stream.Play()
+	err := jukebox.stream.Play()
 	if err != nil {
 		log.Panic(err)
 	}
-	audioStreamer.stream.Wait()
+	jukebox.stream.Wait()
 
 	err = song.Delete()
 	if err != nil {
@@ -96,84 +96,84 @@ func (audioStreamer *AudioStreamer) playSong(song *Song) {
 	log.Printf("Finished playing song")
 }
 
-func (audioStreamer *AudioStreamer) downloadThread() {
+func (jukebox *Jukebox) downloadThread() {
 	for {
-		audioStreamer.lock.Lock()
-		if audioStreamer.downloadQueue.Len() == 0 {
+		jukebox.lock.Lock()
+		if jukebox.downloadQueue.Len() == 0 {
 			log.Println("Nothing to download")
-			audioStreamer.lock.Unlock()
-			_ = <-audioStreamer.downloadChannel
-			audioStreamer.lock.Lock()
+			jukebox.lock.Unlock()
+			_ = <-jukebox.downloadChannel
+			jukebox.lock.Lock()
 		}
-		song, _ := audioStreamer.downloadQueue.Front().Value.(*Song)
-		audioStreamer.lock.Unlock()
+		song, _ := jukebox.downloadQueue.Front().Value.(*Song)
+		jukebox.lock.Unlock()
 
 		err := song.Download()
 		if err != nil {
 			log.Println(err)
-			audioStreamer.lock.Lock()
-			audioStreamer.downloadQueue.Remove(audioStreamer.downloadQueue.Front())
-			audioStreamer.lock.Unlock()
+			jukebox.lock.Lock()
+			jukebox.downloadQueue.Remove(jukebox.downloadQueue.Front())
+			jukebox.lock.Unlock()
 			continue
 		}
 
-		audioStreamer.lock.Lock()
-		audioStreamer.downloadQueue.Remove(audioStreamer.downloadQueue.Front())
-		audioStreamer.playQueue.PushBack(song)
-		if audioStreamer.playQueue.Len() == 1 {
-			go func() { audioStreamer.playChannel <- true }()
+		jukebox.lock.Lock()
+		jukebox.downloadQueue.Remove(jukebox.downloadQueue.Front())
+		jukebox.playQueue.PushBack(song)
+		if jukebox.playQueue.Len() == 1 {
+			go func() { jukebox.playChannel <- true }()
 		}
-		audioStreamer.lock.Unlock()
+		jukebox.lock.Unlock()
 	}
 }
 
-func (audioStreamer *AudioStreamer) Add(song *Song) {
-	audioStreamer.lock.Lock()
-	audioStreamer.downloadQueue.PushBack(song)
-	if audioStreamer.downloadQueue.Len() == 1 {
-		go func() { audioStreamer.downloadChannel <- true }()
+func (jukebox *Jukebox) Add(song *Song) {
+	jukebox.lock.Lock()
+	jukebox.downloadQueue.PushBack(song)
+	if jukebox.downloadQueue.Len() == 1 {
+		go func() { jukebox.downloadChannel <- true }()
 	}
-	audioStreamer.lock.Unlock()
+	jukebox.lock.Unlock()
 }
 
-func (audioStreamer *AudioStreamer) Play() {
-	audioStreamer.lock.RLock()
-	defer audioStreamer.lock.RUnlock()
-	if audioStreamer.stream != nil {
-		audioStreamer.stream.Play()
+func (jukebox *Jukebox) Play() {
+	jukebox.lock.RLock()
+	defer jukebox.lock.RUnlock()
+	if jukebox.stream != nil {
+		jukebox.stream.Play()
 	}
 }
 
-func (audioStreamer *AudioStreamer) Pause() {
-	audioStreamer.lock.RLock()
-	defer audioStreamer.lock.RUnlock()
-	audioStreamer.stream.Pause()
+func (jukebox *Jukebox) Pause() {
+	jukebox.lock.RLock()
+	defer jukebox.lock.RUnlock()
+	jukebox.stream.Pause()
 }
 
-func (audioStreamer *AudioStreamer) Volume(volume float32) {
-	audioStreamer.lock.Lock()
-	defer audioStreamer.lock.Unlock()
-	audioStreamer.volume = volume
-	if audioStreamer.stream.State() == gumbleffmpeg.StatePlaying {
-		audioStreamer.stream.Pause()
-		audioStreamer.stream.Volume = volume
-		audioStreamer.stream.Play()
+func (jukebox *Jukebox) Volume(volume float32) {
+	jukebox.lock.Lock()
+	defer jukebox.lock.Unlock()
+	jukebox.volume = volume
+	if jukebox.stream.State() == gumbleffmpeg.StatePlaying {
+		jukebox.stream.Pause()
+		jukebox.stream.Volume = volume
+		jukebox.stream.Play()
 	} else {
-		audioStreamer.stream.Volume = volume
+		jukebox.stream.Volume = volume
 	}
 }
 
-func (audioStreamer *AudioStreamer) Queue(sender *gumble.User) {
-	audioStreamer.lock.Lock()
-	defer audioStreamer.lock.Unlock()
+func (jukebox *Jukebox) Queue(sender *gumble.User) {
+	jukebox.lock.Lock()
+	defer jukebox.lock.Unlock()
 	message := ""
-	elem := audioStreamer.playQueue.Front()
+	elem := jukebox.playQueue.Front()
 	for elem != nil {
 		song, _ := elem.Value.(*Song)
 		message += song.String() + "<br>"
 		elem = elem.Next()
 	}
-	elem = audioStreamer.downloadQueue.Front()
+	elem = jukebox.downloadQueue.Front()
 	for elem != nil {
 		song, _ := elem.Value.(*Song)
 		message += song.String() + "<br>"
@@ -182,20 +182,20 @@ func (audioStreamer *AudioStreamer) Queue(sender *gumble.User) {
 	sender.Send(message)
 }
 
-func (audioStreamer *AudioStreamer) Skip() {
-	audioStreamer.lock.RLock()
-	defer audioStreamer.lock.RUnlock()
-	audioStreamer.stream.Stop()
+func (jukebox *Jukebox) Skip() {
+	jukebox.lock.RLock()
+	defer jukebox.lock.RUnlock()
+	jukebox.stream.Stop()
 }
 
-func (audioStreamer *AudioStreamer) Clear() {
-	audioStreamer.lock.Lock()
-	defer audioStreamer.lock.Unlock()
-	audioStreamer.playQueue = list.New()
-	audioStreamer.stream.Stop()
+func (jukebox *Jukebox) Clear() {
+	jukebox.lock.Lock()
+	defer jukebox.lock.Unlock()
+	jukebox.playQueue = list.New()
+	jukebox.stream.Stop()
 }
 
-func (audioStreamer *AudioStreamer) Help(sender *gumble.User) {
+func (jukebox *Jukebox) Help(sender *gumble.User) {
 	message := "Commands:<br>" +
 		CMD_ADD + " <link> - add a song to the queue<br>" +
 		CMD_PLAY + " - start the player<br>" +
@@ -214,12 +214,12 @@ func parseMessage(s string, sender *gumble.User) {
 		for _, url := range urls {
 			log.Printf("Found url: %s", url)
 			song := NewSong(sender, url)
-			audioStreamer.Add(song)
+			jukebox.Add(song)
 		}
 	case strings.HasPrefix(s, CMD_PLAY):
-		audioStreamer.Play()
+		jukebox.Play()
 	case strings.HasPrefix(s, CMD_PAUSE):
-		audioStreamer.Pause()
+		jukebox.Pause()
 	case strings.HasPrefix(s, CMD_VOLUME):
 		volumeString := strings.TrimPrefix(s, CMD_VOLUME+" ")
 		volume64, err := strconv.ParseFloat(volumeString, 32)
@@ -230,15 +230,15 @@ func parseMessage(s string, sender *gumble.User) {
 			log.Println("Tried to set volume to value greater than 1")
 			return
 		}
-		audioStreamer.Volume(float32(volume64))
+		jukebox.Volume(float32(volume64))
 	case strings.HasPrefix(s, CMD_QUEUE):
-		audioStreamer.Queue(sender)
+		jukebox.Queue(sender)
 	case strings.HasPrefix(s, CMD_SKIP):
-		audioStreamer.Skip()
+		jukebox.Skip()
 	case strings.HasPrefix(s, CMD_CLEAR):
-		audioStreamer.Clear()
+		jukebox.Clear()
 	case strings.HasPrefix(s, CMD_HELP):
-		audioStreamer.Help(sender)
+		jukebox.Help(sender)
 	}
 }
 
@@ -285,7 +285,7 @@ func main() {
 		Connect: func(e *gumble.ConnectEvent) {
 			log.Printf("Sever's maximum bitrate: %d", *e.MaximumBitrate)
 			e.Client.Attach(gumbleutil.AutoBitrate)
-			audioStreamer = NewAudioStreamer(e.Client)
+			jukebox = NewJukebox(e.Client)
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
 			log.Printf("Received message: %s", e.Message)
