@@ -193,6 +193,7 @@ func (jukebox *Jukebox) Help(sender *gumble.User) {
 		CMD_PLAY + " - start the player<br>" +
 		CMD_PAUSE + " - pause the player<br>" +
 		CMD_VOLUME + " <value> - sets the volume of the song<br>" +
+		CMD_QUEUE + " - lists the current songs in the queue<br>" +
 		CMD_SKIP + " - skips the current song in the queue<br>" +
 		CMD_CLEAR + " - clears the queue<br>" +
 		CMD_HELP + " - how did you even find this"
