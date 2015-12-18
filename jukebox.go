@@ -139,19 +139,23 @@ func (jukebox *Jukebox) Play() {
 func (jukebox *Jukebox) Pause() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
-	jukebox.stream.Pause()
+	if jukebox.stream != nil {
+		jukebox.stream.Pause()
+	}
 }
 
 func (jukebox *Jukebox) Volume(volume float32) {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
 	jukebox.volume = volume
-	if jukebox.stream.State() == gumbleffmpeg.StatePlaying {
-		jukebox.stream.Pause()
-		jukebox.stream.Volume = volume
-		jukebox.stream.Play()
-	} else {
-		jukebox.stream.Volume = volume
+	if jukebox.stream != nil {
+		if jukebox.stream.State() == gumbleffmpeg.StatePlaying {
+			jukebox.stream.Pause()
+			jukebox.stream.Volume = volume
+			jukebox.stream.Play()
+		} else {
+			jukebox.stream.Volume = volume
+		}
 	}
 }
 
@@ -177,14 +181,18 @@ func (jukebox *Jukebox) Queue(sender *gumble.User) {
 func (jukebox *Jukebox) Skip() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
-	jukebox.stream.Stop()
+	if jukebox.stream != nil {
+		jukebox.stream.Stop()
+	}
 }
 
 func (jukebox *Jukebox) Clear() {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
 	jukebox.playQueue = list.New()
-	jukebox.stream.Stop()
+	if jukebox.stream != nil {
+		jukebox.stream.Stop()
+	}
 }
 
 func (jukebox *Jukebox) Help(sender *gumble.User) {
