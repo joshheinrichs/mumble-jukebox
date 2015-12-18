@@ -9,7 +9,7 @@ Requires [FFmpeg](https://www.ffmpeg.org/) and [youtube-dl](https://rg3.github.i
 You'll also need to create a config file named `config.yaml` with at least a username and address to connect to a server. An example file is shown below:
 
 ```yaml
-username: "foo"
+username: "Jukebox"
 address: "example.com:64738"
 ```
 
