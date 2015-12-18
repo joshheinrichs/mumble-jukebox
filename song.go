@@ -43,22 +43,24 @@ func NewSong(sender *gumble.User, url string) *Song {
 // Downloads
 func (song *Song) Download() error {
 	id := uuid.New()
+	outputpath := fmt.Sprintf("audio/%s.%%(ext)s", id)
 	filepath := fmt.Sprintf("audio/%s.mp3", id)
-	infopath := fmt.Sprintf("audio/%s.mp3.info.json", id)
+	infopath := fmt.Sprintf("audio/%s.info.json", id)
 
+	log.Printf("Output path: %s\n", outputpath)
 	log.Printf("File will be saved to: %s\n", filepath)
 	log.Printf("Info will be saved to: %s\n", infopath)
-
 	cmd := exec.Command("youtube-dl",
 		"--extract-audio",
 		"--no-playlist",
 		"--write-info-json",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
-		"-o", filepath,
+		"-o", outputpath,
 		song.url)
-	err := cmd.Run()
+	out, err := cmd.Output()
 	if err != nil {
+		log.Printf("An error occurred downloading the link:\n%s\n", out)
 		return errors.New("Unable to obtain audio from the specified link.")
 	}
 
@@ -67,16 +69,16 @@ func (song *Song) Download() error {
 
 	blob, err := ioutil.ReadFile(infopath)
 	if err != nil {
-		return err
+		log.Printf("%s\n", err)
+		return errors.New("Internal server error.")
 	}
 
 	var info Info
 	err = json.Unmarshal(blob, &info)
 	if err != nil {
-		return err
+		log.Printf("%s\n", err)
+		return errors.New("Internal server error.")
 	}
-
-	log.Println(info)
 
 	song.title = info.Title
 	if info.Duration != nil {
