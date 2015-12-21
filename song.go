@@ -43,9 +43,9 @@ func NewSong(sender *gumble.User, url string) *Song {
 // Downloads
 func (song *Song) Download() error {
 	id := uuid.New()
-	outputpath := fmt.Sprintf("audio/%s.%%(ext)s", id)
-	filepath := fmt.Sprintf("audio/%s.mp3", id)
-	infopath := fmt.Sprintf("audio/%s.info.json", id)
+	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Filesystem.Directory, id)
+	filepath := fmt.Sprintf("%s/%s.mp3", config.Filesystem.Directory, id)
+	infopath := fmt.Sprintf("%s/%s.info.json", config.Filesystem.Directory, id)
 
 	log.Printf("Output path: %s\n", outputpath)
 	log.Printf("File will be saved to: %s\n", filepath)

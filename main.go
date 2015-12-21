@@ -13,6 +13,7 @@ import (
 )
 
 var jukebox *Jukebox
+var config *Config
 
 func parseMessage(s string, sender *gumble.User) {
 	switch {
@@ -81,13 +82,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	config := gumble.NewConfig()
+	config = NewConfig()
 	err = yaml.Unmarshal(blob, &config)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	client := gumble.NewClient(config)
+	client := gumble.NewClient(config.Mumble)
 	client.Attach(gumbleutil.Listener{
 		Connect: func(e *gumble.ConnectEvent) {
 			log.Printf("Sever's maximum bitrate: %d", *e.MaximumBitrate)
@@ -100,6 +101,13 @@ func main() {
 		},
 		UserChange: func(e *gumble.UserChangeEvent) {
 			log.Printf("%s self muted: %t", e.User.Name, e.User.SelfMuted)
+		},
+		ChannelChange: func(e *gumble.ChannelChangeEvent) {
+			log.Printf("Changed to Channel: %s\n", e.Channel.Name)
+			e.Channel.Request(gumble.RequestACL)
+		},
+		ACL: func(e *gumble.ACLEvent) {
+			log.Printf("Got ACL for: %s", e.ACL.Channel.Name)
 		},
 		Disconnect: func(e *gumble.DisconnectEvent) {
 			// TODO: clean up audio files
