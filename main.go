@@ -15,6 +15,8 @@ import (
 var jukebox *Jukebox
 var config *Config
 
+// Parses the given string, and executes a jukebox command based upon the
+// string's prefix.
 func parseMessage(s string, sender *gumble.User) {
 	switch {
 	case strings.HasPrefix(s, CMD_ADD):
@@ -50,6 +52,8 @@ func parseMessage(s string, sender *gumble.User) {
 	}
 }
 
+// Parses the given string, and returns the set of URLs found within it. URLs
+// should be follow standard HTML format (i.e. <a href="foo"></a>).
 func parseUrls(s string) []string {
 	urls := make([]string, 0)
 	doc, err := html.Parse(strings.NewReader(s))

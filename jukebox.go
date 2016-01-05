@@ -32,6 +32,7 @@ type Jukebox struct {
 	downloadChannel chan bool
 }
 
+// Returns a new jukebox.
 func NewJukebox(client *gumble.Client) *Jukebox {
 	jukebox := Jukebox{
 		client:          client,
@@ -47,6 +48,8 @@ func NewJukebox(client *gumble.Client) *Jukebox {
 	return &jukebox
 }
 
+// Waits until songs are added to the play queue, and then plays them until
+// completion.
 func (jukebox *Jukebox) playThread() {
 	for {
 		jukebox.lock.Lock()
@@ -66,6 +69,7 @@ func (jukebox *Jukebox) playThread() {
 	}
 }
 
+// Plays the given song, blocking until completion.
 func (jukebox *Jukebox) playSong(song *Song) {
 	source := gumbleffmpeg.SourceFile(*song.filepath)
 
@@ -88,6 +92,8 @@ func (jukebox *Jukebox) playSong(song *Song) {
 	log.Printf("Finished playing song")
 }
 
+// Waits until songs are added to the download queue, and then downloads and
+// adds them to the play queue.
 func (jukebox *Jukebox) downloadThread() {
 	for {
 		jukebox.lock.Lock()
@@ -119,6 +125,8 @@ func (jukebox *Jukebox) downloadThread() {
 	}
 }
 
+// Adds a song to the jukebox's download queue. After the song is downloaded,
+// it will be added to the play queue.
 func (jukebox *Jukebox) Add(song *Song) {
 	jukebox.lock.Lock()
 	jukebox.downloadQueue.PushBack(song)
@@ -128,6 +136,7 @@ func (jukebox *Jukebox) Add(song *Song) {
 	jukebox.lock.Unlock()
 }
 
+// Resumes the jukebox's playback.
 func (jukebox *Jukebox) Play() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -136,6 +145,7 @@ func (jukebox *Jukebox) Play() {
 	}
 }
 
+// Pauses the jukebox's playback.
 func (jukebox *Jukebox) Pause() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -144,6 +154,7 @@ func (jukebox *Jukebox) Pause() {
 	}
 }
 
+// Sets the volume of the jukebox to the given value.
 func (jukebox *Jukebox) Volume(volume float32) {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -159,6 +170,8 @@ func (jukebox *Jukebox) Volume(volume float32) {
 	}
 }
 
+// Sends a message to the given user containing the list of songs currently in
+// the queue.
 func (jukebox *Jukebox) Queue(sender *gumble.User) {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -178,6 +191,7 @@ func (jukebox *Jukebox) Queue(sender *gumble.User) {
 	sender.Send(message)
 }
 
+// Skips the current song in the queue.
 func (jukebox *Jukebox) Skip() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -186,6 +200,7 @@ func (jukebox *Jukebox) Skip() {
 	}
 }
 
+// Clears all songs in the queue, including the song which is currently playing.
 func (jukebox *Jukebox) Clear() {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -195,6 +210,7 @@ func (jukebox *Jukebox) Clear() {
 	}
 }
 
+// Sends a message to the given user containing a list of jukebox commands.
 func (jukebox *Jukebox) Help(sender *gumble.User) {
 	message := "Commands:<br>" +
 		CMD_ADD + " <link> - add a song to the queue<br>" +

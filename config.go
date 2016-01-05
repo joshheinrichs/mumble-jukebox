@@ -13,6 +13,7 @@ type filesystem struct {
 	Directory string
 }
 
+// Returns a new config with default settings.
 func NewConfig() *Config {
 	return &Config{
 		Mumble: gumble.NewConfig(),
