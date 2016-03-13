@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"time"
 
-	"code.google.com/p/go-uuid/uuid"
 	"github.com/layeh/gumble/gumble"
+	"github.com/pborman/uuid"
 )
 
 // Used for grabbing information from the *.info.json file provided by
