@@ -1,15 +1,16 @@
 package main
 
 import (
-	"github.com/layeh/gumble/gumble"
-	"github.com/layeh/gumble/gumbleutil"
-	"golang.org/x/net/html"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/layeh/gumble/gumble"
+	"github.com/layeh/gumble/gumbleutil"
+	"golang.org/x/net/html"
+	"gopkg.in/yaml.v2"
 )
 
 var jukebox *Jukebox

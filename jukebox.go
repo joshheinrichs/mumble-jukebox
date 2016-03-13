@@ -2,11 +2,12 @@ package main
 
 import (
 	"container/list"
+	"log"
+	"sync"
+
 	"github.com/layeh/gumble/gumble"
 	"github.com/layeh/gumble/gumbleffmpeg"
 	_ "github.com/layeh/gumble/opus"
-	"log"
-	"sync"
 )
 
 const (

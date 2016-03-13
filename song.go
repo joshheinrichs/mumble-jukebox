@@ -1,17 +1,18 @@
 package main
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/layeh/gumble/gumble"
 	"html"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"time"
+
+	"code.google.com/p/go-uuid/uuid"
+	"github.com/layeh/gumble/gumble"
 )
 
 // Used for grabbing information from the *.info.json file provided by
