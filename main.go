@@ -109,7 +109,6 @@ func main() {
 		},
 		ChannelChange: func(e *gumble.ChannelChangeEvent) {
 			log.Printf("Changed to Channel: %s\n", e.Channel.Name)
-			e.Channel.Request(gumble.RequestACL)
 		},
 		ACL: func(e *gumble.ACLEvent) {
 			log.Printf("Got ACL for: %s", e.ACL.Channel.Name)
