@@ -1,2 +1,5 @@
-username: "Jukebox"
-address: "example.com:64738"
+mumble:
+    username: "Jukebox"
+    address: "example.com:64738"
+filesystem:
+    directory: "cache"
