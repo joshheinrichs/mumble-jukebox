@@ -175,16 +175,12 @@ func (jukebox *Jukebox) Queue() []*Song {
 	// TODO: Should songs be duplicated?
 	songs := make([]*Song, jukebox.playQueue.Len()+jukebox.downloadQueue.Len())
 	i := 0
-	elem := jukebox.playQueue.Front()
-	for elem != nil {
+	for elem := jukebox.playQueue.Front(); elem != nil; elem = elem.Next() {
 		songs[i] = elem.Value.(*Song)
-		elem = elem.Next()
 		i++
 	}
-	elem = jukebox.downloadQueue.Front()
-	for elem != nil {
+	for elem := jukebox.downloadQueue.Front(); elem != nil; elem = elem.Next() {
 		songs[i] = elem.Value.(*Song)
-		elem = elem.Next()
 		i++
 	}
 	return songs

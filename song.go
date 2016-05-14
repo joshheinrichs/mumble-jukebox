@@ -59,8 +59,8 @@ func (song *Song) Download() error {
 		"--extract-audio",
 		"--no-playlist",
 		"--write-info-json",
-		"--audio-format mp3",
-		"--audio-quality 0",
+		"--audio-format", "mp3",
+		"--audio-quality", "0",
 		"-o", outputpath,
 		url)
 	out, err := cmd.Output()
@@ -132,24 +132,24 @@ func (song *Song) String() string {
 
 func (song *Song) Title() *string {
 	song.rwMutex.RLock()
-	defer song.rwMutex.Unlock()
+	defer song.rwMutex.RUnlock()
 	return song.title
 }
 
 func (song *Song) Duration() *time.Duration {
 	song.rwMutex.RLock()
-	defer song.rwMutex.Unlock()
+	defer song.rwMutex.RUnlock()
 	return song.duration
 }
 
 func (song *Song) Sender() *gumble.User {
 	song.rwMutex.RLock()
-	defer song.rwMutex.Unlock()
+	defer song.rwMutex.RUnlock()
 	return song.sender
 }
 
 func (song *Song) URL() string {
 	song.rwMutex.RLock()
-	defer song.rwMutex.Unlock()
+	defer song.rwMutex.RUnlock()
 	return song.url
 }

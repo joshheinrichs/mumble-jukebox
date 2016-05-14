@@ -61,8 +61,22 @@ func parseMessage(s string, sender *gumble.User) {
 			message := "<table border=\"1\">" +
 				"<tr><th>Title</th><th>Duration</th><th>Sender</th><th>URL</th></tr>"
 			for _, song := range queue {
-				message += fmt.Sprintf("<tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>",
-					song.Title(), song.Duration().String(), song.Sender().Name, song.URL())
+				var title, duration, sender, url string
+				titlePtr := song.Title()
+				if titlePtr != nil {
+					title = *titlePtr
+				}
+				durationPtr := song.Duration()
+				if durationPtr != nil {
+					duration = durationPtr.String()
+				}
+				senderPtr := song.Sender()
+				if senderPtr != nil {
+					sender = senderPtr.Name
+				}
+				url = song.URL()
+				message += fmt.Sprintf("<tr><td>%s</td><td>%s</td><td>%s</td><td><a href=\"%s\">%s</a></td></tr>",
+					title, duration, sender, url, url)
 			}
 			message += "</table>"
 			sender.Send(message)
