@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"io/ioutil"
 	"log"
 	"os"
@@ -113,21 +112,6 @@ func (song *Song) Delete() error {
 		song.filepath = nil
 	}
 	return nil
-}
-
-func (song *Song) String() string {
-	str := ""
-	if song.title != nil {
-		str += html.EscapeString(fmt.Sprintf("Title: %s", *song.title)) + "<br>"
-	}
-	if song.duration != nil {
-		str += html.EscapeString(fmt.Sprintf("Duration: %s", song.duration.String())) + "<br>"
-	}
-	if song.sender != nil {
-		str += html.EscapeString(fmt.Sprintf("Sender: %s", song.sender.Name)) + "<br>"
-	}
-	str += fmt.Sprintf("URL: <a href='%s'>%s</a>", html.EscapeString(song.url), html.EscapeString(song.url)) + "<br>"
-	return str
 }
 
 func (song *Song) Title() *string {
