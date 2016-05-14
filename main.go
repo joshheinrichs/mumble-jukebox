@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"log"
 	"strconv"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"github.com/layeh/gumble/gumble"
 	"github.com/layeh/gumble/gumbleutil"
 	"golang.org/x/net/html"
-	"gopkg.in/yaml.v2"
 )
 
 var jukebox *Jukebox
@@ -20,19 +18,19 @@ var config *Config
 // string's prefix.
 func parseMessage(s string, sender *gumble.User) {
 	switch {
-	case strings.HasPrefix(s, CMD_ADD):
+	case strings.HasPrefix(s, CmdAdd):
 		urls := parseUrls(s)
 		for _, url := range urls {
 			log.Printf("Found url: %s", url)
 			song := NewSong(sender, url)
 			jukebox.Add(song)
 		}
-	case strings.HasPrefix(s, CMD_PLAY):
+	case strings.HasPrefix(s, CmdPlay):
 		jukebox.Play()
-	case strings.HasPrefix(s, CMD_PAUSE):
+	case strings.HasPrefix(s, CmdPause):
 		jukebox.Pause()
-	case strings.HasPrefix(s, CMD_VOLUME):
-		volumeString := strings.TrimPrefix(s, CMD_VOLUME+" ")
+	case strings.HasPrefix(s, CmdVolume):
+		volumeString := strings.TrimPrefix(s, CmdVolume+" ")
 		volume64, err := strconv.ParseFloat(volumeString, 32)
 		if err != nil {
 			log.Println(err)
@@ -42,13 +40,13 @@ func parseMessage(s string, sender *gumble.User) {
 			return
 		}
 		jukebox.Volume(float32(volume64))
-	case strings.HasPrefix(s, CMD_QUEUE):
+	case strings.HasPrefix(s, CmdQueue):
 		jukebox.Queue(sender)
-	case strings.HasPrefix(s, CMD_SKIP):
+	case strings.HasPrefix(s, CmdSkip):
 		jukebox.Skip()
-	case strings.HasPrefix(s, CMD_CLEAR):
+	case strings.HasPrefix(s, CmdClear):
 		jukebox.Clear()
-	case strings.HasPrefix(s, CMD_HELP):
+	case strings.HasPrefix(s, CmdHelp):
 		jukebox.Help(sender)
 	}
 }
@@ -80,18 +78,13 @@ func parseUrls(s string) []string {
 }
 
 func main() {
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var err error
+	config, err = ReadConfig("config.yaml")
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	blob, err := ioutil.ReadFile("config.yaml")
-	if err != nil {
-		log.Fatal(err)
-	}
-	config = NewConfig()
-	err = yaml.Unmarshal(blob, &config)
-	if err != nil {
-		log.Fatal(err)
-	}
+	var wg sync.WaitGroup
 
 	client := gumble.NewClient(config.Mumble)
 	client.Attach(gumbleutil.Listener{
@@ -123,5 +116,6 @@ func main() {
 		log.Fatal(err)
 	}
 
+	wg.Add(1)
 	wg.Wait()
 }

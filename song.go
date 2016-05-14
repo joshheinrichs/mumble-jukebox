@@ -33,15 +33,12 @@ type Song struct {
 
 func NewSong(sender *gumble.User, url string) *Song {
 	song := Song{
-		sender:   sender,
-		url:      url,
-		title:    nil,
-		duration: nil,
+		sender: sender,
+		url:    url,
 	}
 	return &song
 }
 
-// Downloads
 func (song *Song) Download() error {
 	id := uuid.New()
 	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Filesystem.Directory, id)

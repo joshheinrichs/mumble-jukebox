@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	CMD_PREFIX string = "/"
-	CMD_ADD    string = CMD_PREFIX + "add"
-	CMD_PLAY   string = CMD_PREFIX + "play"
-	CMD_PAUSE  string = CMD_PREFIX + "pause"
-	CMD_VOLUME string = CMD_PREFIX + "volume"
-	CMD_QUEUE  string = CMD_PREFIX + "queue"
-	CMD_SKIP   string = CMD_PREFIX + "skip"
-	CMD_CLEAR  string = CMD_PREFIX + "clear"
-	CMD_HELP   string = CMD_PREFIX + "help"
+	CmdPrefix string = "/"
+	CmdAdd    string = CmdPrefix + "add"
+	CmdPlay   string = CmdPrefix + "play"
+	CmdPause  string = CmdPrefix + "pause"
+	CmdVolume string = CmdPrefix + "volume"
+	CmdQueue  string = CmdPrefix + "queue"
+	CmdSkip   string = CmdPrefix + "skip"
+	CmdClear  string = CmdPrefix + "clear"
+	CmdHelp   string = CmdPrefix + "help"
 )
 
 type Jukebox struct {
@@ -33,7 +33,7 @@ type Jukebox struct {
 	downloadChannel chan bool
 }
 
-// Returns a new jukebox.
+// NewJukebox returns a new jukebox.
 func NewJukebox(client *gumble.Client) *Jukebox {
 	jukebox := Jukebox{
 		client:          client,
@@ -126,8 +126,8 @@ func (jukebox *Jukebox) downloadThread() {
 	}
 }
 
-// Adds a song to the jukebox's download queue. After the song is downloaded,
-// it will be added to the play queue.
+// Add adds a song to the jukebox's download queue. After the song is
+// downloaded, it will be added to the play queue.
 func (jukebox *Jukebox) Add(song *Song) {
 	jukebox.lock.Lock()
 	jukebox.downloadQueue.PushBack(song)
@@ -137,7 +137,7 @@ func (jukebox *Jukebox) Add(song *Song) {
 	jukebox.lock.Unlock()
 }
 
-// Resumes the jukebox's playback.
+// Play resumes the jukebox's playback.
 func (jukebox *Jukebox) Play() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -146,7 +146,7 @@ func (jukebox *Jukebox) Play() {
 	}
 }
 
-// Pauses the jukebox's playback.
+// Pause pauses the jukebox's playback.
 func (jukebox *Jukebox) Pause() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -155,7 +155,7 @@ func (jukebox *Jukebox) Pause() {
 	}
 }
 
-// Sets the volume of the jukebox to the given value.
+// Volume sets the volume of the jukebox to the given value.
 func (jukebox *Jukebox) Volume(volume float32) {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -171,8 +171,8 @@ func (jukebox *Jukebox) Volume(volume float32) {
 	}
 }
 
-// Sends a message to the given user containing the list of songs currently in
-// the queue.
+// Queue sends a message to the given user containing the list of songs
+// currently in the queue.
 func (jukebox *Jukebox) Queue(sender *gumble.User) {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -192,7 +192,7 @@ func (jukebox *Jukebox) Queue(sender *gumble.User) {
 	sender.Send(message)
 }
 
-// Skips the current song in the queue.
+// Skip skips the current song in the queue.
 func (jukebox *Jukebox) Skip() {
 	jukebox.lock.RLock()
 	defer jukebox.lock.RUnlock()
@@ -201,7 +201,8 @@ func (jukebox *Jukebox) Skip() {
 	}
 }
 
-// Clears all songs in the queue, including the song which is currently playing.
+// Clear clears all songs in the queue, including the song which is currently
+// playing.
 func (jukebox *Jukebox) Clear() {
 	jukebox.lock.Lock()
 	defer jukebox.lock.Unlock()
@@ -211,16 +212,16 @@ func (jukebox *Jukebox) Clear() {
 	}
 }
 
-// Sends a message to the given user containing a list of jukebox commands.
+// Help sends a message to the given user containing a list of jukebox commands.
 func (jukebox *Jukebox) Help(sender *gumble.User) {
 	message := "Commands:<br>" +
-		CMD_ADD + " <link> - add a song to the queue<br>" +
-		CMD_PLAY + " - start the player<br>" +
-		CMD_PAUSE + " - pause the player<br>" +
-		CMD_VOLUME + " <value> - sets the volume of the song<br>" +
-		CMD_QUEUE + " - lists the current songs in the queue<br>" +
-		CMD_SKIP + " - skips the current song in the queue<br>" +
-		CMD_CLEAR + " - clears the queue<br>" +
-		CMD_HELP + " - how did you even find this"
+		CmdAdd + " <link> - add a song to the queue<br>" +
+		CmdPlay + " - start the player<br>" +
+		CmdPause + " - pause the player<br>" +
+		CmdVolume + " <value> - sets the volume of the song<br>" +
+		CmdQueue + " - lists the current songs in the queue<br>" +
+		CmdSkip + " - skips the current song in the queue<br>" +
+		CmdClear + " - clears the queue<br>" +
+		CmdHelp + " - how did you even find this"
 	sender.Send(message)
 }
