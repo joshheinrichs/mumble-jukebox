@@ -135,11 +135,10 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	client := gumble.NewClient(config.Mumble)
-	client.Attach(gumbleutil.Listener{
+	config.Mumble.Attach(gumbleutil.Listener{
 		Connect: func(e *gumble.ConnectEvent) {
 			log.Printf("Sever's maximum bitrate: %d", *e.MaximumBitrate)
-			e.Client.Attach(gumbleutil.AutoBitrate)
+			config.Mumble.Attach(gumbleutil.AutoBitrate)
 			jukebox = NewJukebox(e.Client)
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
@@ -160,7 +159,8 @@ func main() {
 			wg.Done()
 		},
 	})
-	err = client.Connect()
+
+	_, err = gumble.Dial(config.Address, config.Mumble)
 	if err != nil {
 		log.Fatal(err)
 	}

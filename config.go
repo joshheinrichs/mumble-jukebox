@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Mumble     *gumble.Config
 	Filesystem filesystem
+	Address    string
 }
 
 type filesystem struct {
