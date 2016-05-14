@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/layeh/gumble/gumble"
@@ -23,6 +24,7 @@ type Info struct {
 }
 
 type Song struct {
+	rwMutex  sync.RWMutex
 	sender   *gumble.User
 	url      string
 	filepath *string
@@ -40,6 +42,10 @@ func NewSong(sender *gumble.User, url string) *Song {
 }
 
 func (song *Song) Download() error {
+	song.rwMutex.RLock()
+	url := song.url
+	song.rwMutex.RUnlock()
+
 	id := uuid.New()
 	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Filesystem.Directory, id)
 	filepath := fmt.Sprintf("%s/%s.mp3", config.Filesystem.Directory, id)
@@ -48,22 +54,20 @@ func (song *Song) Download() error {
 	log.Printf("Output path: %s\n", outputpath)
 	log.Printf("File will be saved to: %s\n", filepath)
 	log.Printf("Info will be saved to: %s\n", infopath)
+
 	cmd := exec.Command("youtube-dl",
 		"--extract-audio",
 		"--no-playlist",
 		"--write-info-json",
-		"--audio-format", "mp3",
-		"--audio-quality", "0",
+		"--audio-format mp3",
+		"--audio-quality 0",
 		"-o", outputpath,
-		song.url)
+		url)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("An error occurred downloading the link:\n%s\n", out)
 		return errors.New("Unable to obtain audio from the specified link.")
 	}
-
-	song.filepath = &filepath
-	song.infopath = &infopath
 
 	blob, err := ioutil.ReadFile(infopath)
 	if err != nil {
@@ -78,24 +82,35 @@ func (song *Song) Download() error {
 		return errors.New("Internal server error.")
 	}
 
+	song.rwMutex.Lock()
+	song.filepath = &filepath
+	song.infopath = &infopath
 	song.title = info.Title
 	if info.Duration != nil {
-		var duration time.Duration
-		duration = time.Duration(float64(time.Second) * *info.Duration)
+		duration := time.Duration(float64(time.Second) * *info.Duration)
 		song.duration = &duration
 	}
+	song.rwMutex.Unlock()
 
 	return nil
 }
 
 func (song *Song) Delete() error {
-	err := os.Remove(*song.filepath)
-	if err != nil {
-		return err
+	song.rwMutex.Lock()
+	defer song.rwMutex.Unlock()
+	if song.filepath != nil {
+		err := os.Remove(*song.filepath)
+		if err != nil {
+			return err
+		}
+		song.filepath = nil
 	}
-	err = os.Remove(*song.infopath)
-	if err != nil {
-		return err
+	if song.filepath != nil {
+		err := os.Remove(*song.infopath)
+		if err != nil {
+			return err
+		}
+		song.filepath = nil
 	}
 	return nil
 }
@@ -113,4 +128,28 @@ func (song *Song) String() string {
 	}
 	str += fmt.Sprintf("URL: <a href='%s'>%s</a>", html.EscapeString(song.url), html.EscapeString(song.url)) + "<br>"
 	return str
+}
+
+func (song *Song) Title() *string {
+	song.rwMutex.RLock()
+	defer song.rwMutex.Unlock()
+	return song.title
+}
+
+func (song *Song) Duration() *time.Duration {
+	song.rwMutex.RLock()
+	defer song.rwMutex.Unlock()
+	return song.duration
+}
+
+func (song *Song) Sender() *gumble.User {
+	song.rwMutex.RLock()
+	defer song.rwMutex.Unlock()
+	return song.sender
+}
+
+func (song *Song) URL() string {
+	song.rwMutex.RLock()
+	defer song.rwMutex.Unlock()
+	return song.url
 }

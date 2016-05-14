@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/list"
+	"errors"
 	"log"
 	"sync"
 
@@ -10,20 +11,10 @@ import (
 	_ "github.com/layeh/gumble/opus"
 )
 
-const (
-	CmdPrefix string = "/"
-	CmdAdd    string = CmdPrefix + "add"
-	CmdPlay   string = CmdPrefix + "play"
-	CmdPause  string = CmdPrefix + "pause"
-	CmdVolume string = CmdPrefix + "volume"
-	CmdQueue  string = CmdPrefix + "queue"
-	CmdSkip   string = CmdPrefix + "skip"
-	CmdClear  string = CmdPrefix + "clear"
-	CmdHelp   string = CmdPrefix + "help"
-)
+var ErrVolumeOutsideRange = errors.New("Volume must be set to a value between 0 and 1")
 
 type Jukebox struct {
-	lock            sync.RWMutex
+	rwMutex         sync.RWMutex
 	client          *gumble.Client
 	stream          *gumbleffmpeg.Stream
 	volume          float32
@@ -53,20 +44,20 @@ func NewJukebox(client *gumble.Client) *Jukebox {
 // completion.
 func (jukebox *Jukebox) playThread() {
 	for {
-		jukebox.lock.Lock()
+		jukebox.rwMutex.Lock()
 		if jukebox.playQueue.Len() == 0 {
-			jukebox.lock.Unlock()
+			jukebox.rwMutex.Unlock()
 			_ = <-jukebox.playChannel
-			jukebox.lock.Lock()
+			jukebox.rwMutex.Lock()
 		}
 		song, _ := jukebox.playQueue.Front().Value.(*Song)
-		jukebox.lock.Unlock()
+		jukebox.rwMutex.Unlock()
 
 		jukebox.playSong(song)
 
-		jukebox.lock.Lock()
+		jukebox.rwMutex.Lock()
 		jukebox.playQueue.Remove(jukebox.playQueue.Front())
-		jukebox.lock.Unlock()
+		jukebox.rwMutex.Unlock()
 	}
 }
 
@@ -74,10 +65,10 @@ func (jukebox *Jukebox) playThread() {
 func (jukebox *Jukebox) playSong(song *Song) {
 	source := gumbleffmpeg.SourceFile(*song.filepath)
 
-	jukebox.lock.Lock()
+	jukebox.rwMutex.Lock()
 	jukebox.stream = gumbleffmpeg.New(jukebox.client, source)
 	jukebox.stream.Volume = jukebox.volume
-	jukebox.lock.Unlock()
+	jukebox.rwMutex.Unlock()
 
 	err := jukebox.stream.Play()
 	if err != nil {
@@ -97,50 +88,51 @@ func (jukebox *Jukebox) playSong(song *Song) {
 // adds them to the play queue.
 func (jukebox *Jukebox) downloadThread() {
 	for {
-		jukebox.lock.Lock()
+		jukebox.rwMutex.Lock()
 		if jukebox.downloadQueue.Len() == 0 {
 			log.Println("Nothing to download")
-			jukebox.lock.Unlock()
+			jukebox.rwMutex.Unlock()
 			_ = <-jukebox.downloadChannel
-			jukebox.lock.Lock()
+			jukebox.rwMutex.Lock()
 		}
 		song, _ := jukebox.downloadQueue.Front().Value.(*Song)
-		jukebox.lock.Unlock()
+		jukebox.rwMutex.Unlock()
 
 		err := song.Download()
 		if err != nil {
 			log.Println(err)
-			jukebox.lock.Lock()
+			jukebox.rwMutex.Lock()
 			jukebox.downloadQueue.Remove(jukebox.downloadQueue.Front())
-			jukebox.lock.Unlock()
+			jukebox.rwMutex.Unlock()
 			continue
 		}
 
-		jukebox.lock.Lock()
+		jukebox.rwMutex.Lock()
 		jukebox.downloadQueue.Remove(jukebox.downloadQueue.Front())
 		jukebox.playQueue.PushBack(song)
 		if jukebox.playQueue.Len() == 1 {
 			go func() { jukebox.playChannel <- true }()
 		}
-		jukebox.lock.Unlock()
+		jukebox.rwMutex.Unlock()
 	}
 }
 
 // Add adds a song to the jukebox's download queue. After the song is
 // downloaded, it will be added to the play queue.
-func (jukebox *Jukebox) Add(song *Song) {
-	jukebox.lock.Lock()
+func (jukebox *Jukebox) Add(song *Song) error {
+	jukebox.rwMutex.Lock()
+	defer jukebox.rwMutex.Unlock()
 	jukebox.downloadQueue.PushBack(song)
 	if jukebox.downloadQueue.Len() == 1 {
 		go func() { jukebox.downloadChannel <- true }()
 	}
-	jukebox.lock.Unlock()
+	return nil
 }
 
 // Play resumes the jukebox's playback.
 func (jukebox *Jukebox) Play() {
-	jukebox.lock.RLock()
-	defer jukebox.lock.RUnlock()
+	jukebox.rwMutex.RLock()
+	defer jukebox.rwMutex.RUnlock()
 	if jukebox.stream != nil {
 		jukebox.stream.Play()
 	}
@@ -148,17 +140,20 @@ func (jukebox *Jukebox) Play() {
 
 // Pause pauses the jukebox's playback.
 func (jukebox *Jukebox) Pause() {
-	jukebox.lock.RLock()
-	defer jukebox.lock.RUnlock()
+	jukebox.rwMutex.RLock()
+	defer jukebox.rwMutex.RUnlock()
 	if jukebox.stream != nil {
 		jukebox.stream.Pause()
 	}
 }
 
 // Volume sets the volume of the jukebox to the given value.
-func (jukebox *Jukebox) Volume(volume float32) {
-	jukebox.lock.Lock()
-	defer jukebox.lock.Unlock()
+func (jukebox *Jukebox) Volume(volume float32) error {
+	if volume > 1 {
+		return ErrVolumeOutsideRange
+	}
+	jukebox.rwMutex.Lock()
+	defer jukebox.rwMutex.Unlock()
 	jukebox.volume = volume
 	if jukebox.stream != nil {
 		if jukebox.stream.State() == gumbleffmpeg.StatePlaying {
@@ -169,33 +164,36 @@ func (jukebox *Jukebox) Volume(volume float32) {
 			jukebox.stream.Volume = volume
 		}
 	}
+	return nil
 }
 
 // Queue sends a message to the given user containing the list of songs
 // currently in the queue.
-func (jukebox *Jukebox) Queue(sender *gumble.User) {
-	jukebox.lock.Lock()
-	defer jukebox.lock.Unlock()
-	message := ""
+func (jukebox *Jukebox) Queue() []*Song {
+	jukebox.rwMutex.RLock()
+	defer jukebox.rwMutex.RUnlock()
+	// TODO: Should songs be duplicated?
+	songs := make([]*Song, jukebox.playQueue.Len()+jukebox.downloadQueue.Len())
+	i := 0
 	elem := jukebox.playQueue.Front()
 	for elem != nil {
-		song, _ := elem.Value.(*Song)
-		message += song.String() + "<br>"
+		songs[i] = elem.Value.(*Song)
 		elem = elem.Next()
+		i++
 	}
 	elem = jukebox.downloadQueue.Front()
 	for elem != nil {
-		song, _ := elem.Value.(*Song)
-		message += song.String() + "<br>"
+		songs[i] = elem.Value.(*Song)
 		elem = elem.Next()
+		i++
 	}
-	sender.Send(message)
+	return songs
 }
 
 // Skip skips the current song in the queue.
 func (jukebox *Jukebox) Skip() {
-	jukebox.lock.RLock()
-	defer jukebox.lock.RUnlock()
+	jukebox.rwMutex.RLock()
+	defer jukebox.rwMutex.RUnlock()
 	if jukebox.stream != nil {
 		jukebox.stream.Stop()
 	}
@@ -204,24 +202,10 @@ func (jukebox *Jukebox) Skip() {
 // Clear clears all songs in the queue, including the song which is currently
 // playing.
 func (jukebox *Jukebox) Clear() {
-	jukebox.lock.Lock()
-	defer jukebox.lock.Unlock()
+	jukebox.rwMutex.Lock()
+	defer jukebox.rwMutex.Unlock()
 	jukebox.playQueue = list.New()
 	if jukebox.stream != nil {
 		jukebox.stream.Stop()
 	}
-}
-
-// Help sends a message to the given user containing a list of jukebox commands.
-func (jukebox *Jukebox) Help(sender *gumble.User) {
-	message := "Commands:<br>" +
-		CmdAdd + " <link> - add a song to the queue<br>" +
-		CmdPlay + " - start the player<br>" +
-		CmdPause + " - pause the player<br>" +
-		CmdVolume + " <value> - sets the volume of the song<br>" +
-		CmdQueue + " - lists the current songs in the queue<br>" +
-		CmdSkip + " - skips the current song in the queue<br>" +
-		CmdClear + " - clears the queue<br>" +
-		CmdHelp + " - how did you even find this"
-	sender.Send(message)
 }
