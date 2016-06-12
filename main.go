@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"strconv"
@@ -26,6 +27,40 @@ const (
 
 var jukebox *Jukebox
 var config *Config
+
+func init() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	var configPath string
+	flag.StringVar(&configPath, "config", "", "Path to a config file.")
+	var username string
+	flag.StringVar(&username, "username", "", "Username of the jukebox.")
+	var address string
+	flag.StringVar(&address, "address", "", "Address of the mumble server.")
+	var password string
+	flag.StringVar(&password, "password", "", "Password for the mumble server.")
+
+	flag.Parse()
+
+	var err error
+	if len(configPath) > 0 {
+		config, err = ReadConfig(configPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		config = NewConfig()
+	}
+	if len(username) > 0 {
+		config.Mumble.Username = username
+	}
+	if len(address) > 0 {
+		config.Address = address
+	}
+	if len(password) > 0 {
+		config.Password = password
+	}
+}
 
 // Parses the given string, and executes a jukebox command based upon the
 // string's prefix.
@@ -127,12 +162,6 @@ func parseURLs(s string) []string {
 }
 
 func main() {
-	var err error
-	config, err = ReadConfig("config.yaml")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	var wg sync.WaitGroup
 
 	config.Mumble.Attach(gumbleutil.Listener{
@@ -160,7 +189,7 @@ func main() {
 		},
 	})
 
-	_, err = gumble.Dial(config.Address, config.Mumble)
+	_, err := gumble.Dial(config.Address, config.Mumble)
 	if err != nil {
 		log.Fatal(err)
 	}
