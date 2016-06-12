@@ -58,7 +58,7 @@ func init() {
 		config.Address = address
 	}
 	if len(password) > 0 {
-		config.Password = password
+		config.Mumble.Password = password
 	}
 }
 
