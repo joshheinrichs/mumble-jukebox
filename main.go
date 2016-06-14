@@ -37,6 +37,8 @@ func init() {
 	flag.StringVar(&username, "username", "", "Username of the jukebox.")
 	var address string
 	flag.StringVar(&address, "address", "", "Address of the mumble server.")
+	var port string
+	flag.StringVar(&port, "port", "", "Port of the mumble server.")
 	var password string
 	flag.StringVar(&password, "password", "", "Password for the mumble server.")
 
@@ -56,6 +58,9 @@ func init() {
 	}
 	if len(address) > 0 {
 		config.Mumble.Address = address
+	}
+	if len(port) > 0 {
+		config.Mumble.Port = port
 	}
 	if len(password) > 0 {
 		config.Mumble.Password = password
