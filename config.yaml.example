@@ -1,5 +1,0 @@
-mumble:
-    username: "Jukebox"
-filesystem:
-    directory: "cache"
-address: "example.com:64738"

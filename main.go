@@ -55,7 +55,7 @@ func init() {
 		config.Mumble.Username = username
 	}
 	if len(address) > 0 {
-		config.Address = address
+		config.Mumble.Address = address
 	}
 	if len(password) > 0 {
 		config.Mumble.Password = password
@@ -164,10 +164,14 @@ func parseURLs(s string) []string {
 func main() {
 	var wg sync.WaitGroup
 
-	config.Mumble.Attach(gumbleutil.Listener{
+	gumbleConfig := gumble.NewConfig()
+	gumbleConfig.Username = config.Mumble.Username
+	gumbleConfig.Password = config.Mumble.Password
+
+	gumbleConfig.Attach(gumbleutil.Listener{
 		Connect: func(e *gumble.ConnectEvent) {
 			log.Printf("Sever's maximum bitrate: %d", *e.MaximumBitrate)
-			config.Mumble.Attach(gumbleutil.AutoBitrate)
+			gumbleConfig.Attach(gumbleutil.AutoBitrate)
 			jukebox = NewJukebox(e.Client)
 		},
 		TextMessage: func(e *gumble.TextMessageEvent) {
@@ -189,7 +193,7 @@ func main() {
 		},
 	})
 
-	_, err := gumble.Dial(config.Address, config.Mumble)
+	_, err := gumble.Dial(fmt.Sprintf("%s:%s", config.Mumble.Address, config.Mumble.Port), gumbleConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

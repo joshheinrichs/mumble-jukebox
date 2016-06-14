@@ -46,9 +46,9 @@ func (song *Song) Download() error {
 	song.rwMutex.RUnlock()
 
 	id := uuid.New()
-	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Filesystem.Directory, id)
-	filepath := fmt.Sprintf("%s/%s.mp3", config.Filesystem.Directory, id)
-	infopath := fmt.Sprintf("%s/%s.info.json", config.Filesystem.Directory, id)
+	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id)
+	filepath := fmt.Sprintf("%s/%s.mp3", config.Cache.Directory, id)
+	infopath := fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id)
 
 	log.Printf("Output path: %s\n", outputpath)
 	log.Printf("File will be saved to: %s\n", filepath)

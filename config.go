@@ -1,41 +1,45 @@
 package main
 
-import (
-	"io/ioutil"
-
-	"github.com/layeh/gumble/gumble"
-	"gopkg.in/yaml.v2"
-)
+import "gopkg.in/ini.v1"
 
 type Config struct {
-	Mumble     *gumble.Config
-	Filesystem filesystem
-	Address    string
+	Mumble mumbleConfig `ini:"mumble"`
+	Cache  cacheConfig  `ini:"cache"`
 }
 
-type filesystem struct {
-	Directory string
+type mumbleConfig struct {
+	Username string `ini:"username"`
+	Password string `ini:"password"`
+	Address  string `ini:"address"`
+	Port     string `ini:"port"`
+}
+
+type cacheConfig struct {
+	Directory string `ini:"directory"`
 }
 
 // NewConfig returns a new config with default settings.
 func NewConfig() *Config {
 	return &Config{
-		Mumble: gumble.NewConfig(),
-		Filesystem: filesystem{
+		Mumble: mumbleConfig{
+			Username: "Jukebox",
+			Port:     "64738",
+		},
+		Cache: cacheConfig{
 			Directory: "cache",
 		},
 	}
 }
 
 // ReadConfig returns a new config with the default settings, overridden by the
-// settings in the config file. The config should be in yaml format.
+// settings in the config file..
 func ReadConfig(filename string) (*Config, error) {
-	blob, err := ioutil.ReadFile(filename)
+	cfg, err := ini.Load(filename)
 	if err != nil {
 		return nil, err
 	}
 	config := NewConfig()
-	err = yaml.Unmarshal(blob, config)
+	err = cfg.MapTo(config)
 	if err != nil {
 		return nil, err
 	}
