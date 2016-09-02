@@ -33,7 +33,7 @@ func NewConfig() *Config {
 			Port:     "64738",
 		},
 		Cache: cacheConfig{
-			Directory:   ".cache/mumble-jukebox",
+			Directory:   "~/.cache/mumble-jukebox",
 			MaxFilesize: "100m",
 			MaxSize:     10,
 		},
