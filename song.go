@@ -27,7 +27,7 @@ type Song struct {
 	rwMutex  sync.RWMutex
 	sender   *gumble.User
 	url      string
-	filepath *string
+	songpath *string
 	infopath *string
 	title    *string
 	duration *time.Duration
@@ -47,10 +47,16 @@ func (song *Song) Download() error {
 	song.rwMutex.RUnlock()
 
 	id := uuid.New()
-	filepath := filepath.Abs(fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id))
-	infopath := filepath.Abs(fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id))
+	songpath, err := filepath.Abs(fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id))
+	if err != nil {
+		return err
+	}
+	infopath, err := filepath.Abs(fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id))
+	if err != nil {
+		return err
+	}
 
-	log.Printf("File will be saved to: %s\n", filepath)
+	log.Printf("File will be saved to: %s\n", songpath)
 	log.Printf("Info will be saved to: %s\n", infopath)
 
 	cmd := exec.Command("youtube-dl",
@@ -60,7 +66,7 @@ func (song *Song) Download() error {
 		"--write-info-json",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
-		"-o", filepath,
+		"-o", songpath,
 		url)
 	out, err := cmd.Output()
 	if err != nil {
@@ -82,7 +88,7 @@ func (song *Song) Download() error {
 	}
 
 	song.rwMutex.Lock()
-	song.filepath = &filepath
+	song.songpath = &songpath
 	song.infopath = &infopath
 	song.title = info.Title
 	if info.Duration != nil {
@@ -97,11 +103,11 @@ func (song *Song) Download() error {
 func (song *Song) Delete() error {
 	song.rwMutex.Lock()
 	defer song.rwMutex.Unlock()
-	if song.filepath != nil {
-		if err := os.Remove(*song.filepath); err != nil {
+	if song.songpath != nil {
+		if err := os.Remove(*song.songpath); err != nil {
 			return err
 		}
-		song.filepath = nil
+		song.songpath = nil
 	}
 	if song.infopath != nil {
 		if err := os.Remove(*song.infopath); err != nil {

@@ -69,7 +69,7 @@ func (jukebox *Jukebox) playThread() {
 
 // Plays the given song, blocking until completion.
 func (jukebox *Jukebox) playSong(song *Song) {
-	source := gumbleffmpeg.SourceFile(*song.filepath)
+	source := gumbleffmpeg.SourceFile(*song.songpath)
 
 	jukebox.rwMutex.Lock()
 	jukebox.stream = gumbleffmpeg.New(jukebox.client, source)
