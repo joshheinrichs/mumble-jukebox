@@ -16,6 +16,8 @@ import (
 	"github.com/pborman/uuid"
 )
 
+var ErrInternal = errors.New("Internal server error")
+
 // Used for grabbing information from the *.info.json file provided by
 // youtube-dl
 type Info struct {
@@ -49,11 +51,13 @@ func (song *Song) Download() error {
 	id := uuid.New()
 	songpath, err := filepath.Abs(fmt.Sprintf("%s/%s.mp3", config.Cache.Directory, id))
 	if err != nil {
-		return err
+		log.Printf("%s\n", err)
+		return ErrInternal
 	}
-	infopath, err := filepath.Abs(fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id))
+	infopath, err := filepath.Abs(fmt.Sprintf("%s/%s.mp3.info.json", config.Cache.Directory, id))
 	if err != nil {
-		return err
+		log.Printf("%s\n", err)
+		return ErrInternal
 	}
 
 	log.Printf("File will be saved to: %s\n", songpath)
@@ -77,14 +81,14 @@ func (song *Song) Download() error {
 	blob, err := ioutil.ReadFile(infopath)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return errors.New("Internal server error.")
+		return ErrInternal
 	}
 
 	var info Info
 	err = json.Unmarshal(blob, &info)
 	if err != nil {
 		log.Printf("%s\n", err)
-		return errors.New("Internal server error.")
+		return ErrInternal
 	}
 
 	song.rwMutex.Lock()
