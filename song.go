@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -46,8 +47,8 @@ func (song *Song) Download() error {
 	song.rwMutex.RUnlock()
 
 	id := uuid.New()
-	filepath := fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id)
-	infopath := fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id)
+	filepath := filepath.Abs(fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id))
+	infopath := filepath.Abs(fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id))
 
 	log.Printf("File will be saved to: %s\n", filepath)
 	log.Printf("Info will be saved to: %s\n", infopath)
@@ -97,13 +98,13 @@ func (song *Song) Delete() error {
 	song.rwMutex.Lock()
 	defer song.rwMutex.Unlock()
 	if song.filepath != nil {
-		if err := os.Remove(*song.filepath); err != nil && err != os.ErrNotExist {
+		if err := os.Remove(*song.filepath); err != nil {
 			return err
 		}
 		song.filepath = nil
 	}
 	if song.infopath != nil {
-		if err := os.Remove(*song.infopath); err != nil && err != os.ErrNotExist {
+		if err := os.Remove(*song.infopath); err != nil {
 			return err
 		}
 		song.infopath = nil
