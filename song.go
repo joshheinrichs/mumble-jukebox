@@ -46,21 +46,20 @@ func (song *Song) Download() error {
 	song.rwMutex.RUnlock()
 
 	id := uuid.New()
-	outputpath := fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id)
-	filepath := fmt.Sprintf("%s/%s.mp3", config.Cache.Directory, id)
+	filepath := fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id)
 	infopath := fmt.Sprintf("%s/%s.info.json", config.Cache.Directory, id)
 
-	log.Printf("Output path: %s\n", outputpath)
 	log.Printf("File will be saved to: %s\n", filepath)
 	log.Printf("Info will be saved to: %s\n", infopath)
 
 	cmd := exec.Command("youtube-dl",
+		"--max-filesize", config.Cache.MaxFilesize,
 		"--extract-audio",
 		"--no-playlist",
 		"--write-info-json",
 		"--audio-format", "mp3",
 		"--audio-quality", "0",
-		"-o", outputpath,
+		"-o", filepath,
 		url)
 	out, err := cmd.Output()
 	if err != nil {
@@ -98,18 +97,16 @@ func (song *Song) Delete() error {
 	song.rwMutex.Lock()
 	defer song.rwMutex.Unlock()
 	if song.filepath != nil {
-		err := os.Remove(*song.filepath)
-		if err != nil {
+		if err := os.Remove(*song.filepath); err != nil && err != os.ErrNotExist {
 			return err
 		}
 		song.filepath = nil
 	}
-	if song.filepath != nil {
-		err := os.Remove(*song.infopath)
-		if err != nil {
+	if song.infopath != nil {
+		if err := os.Remove(*song.infopath); err != nil && err != os.ErrNotExist {
 			return err
 		}
-		song.filepath = nil
+		song.infopath = nil
 	}
 	return nil
 }

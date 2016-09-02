@@ -5,6 +5,7 @@ import "gopkg.in/ini.v1"
 type Config struct {
 	Mumble mumbleConfig `ini:"mumble"`
 	Cache  cacheConfig  `ini:"cache"`
+	Queue  queueConfig  `ini:"queue"`
 }
 
 type mumbleConfig struct {
@@ -15,7 +16,13 @@ type mumbleConfig struct {
 }
 
 type cacheConfig struct {
-	Directory string `ini:"directory"`
+	Directory   string `ini:"directory"`
+	MaxSize     int    `ini:"maxsize"`
+	MaxFilesize string `ini:"maxfilesize"`
+}
+
+type queueConfig struct {
+	MaxSize int `ini:"maxsize"`
 }
 
 // NewConfig returns a new config with default settings.
@@ -26,7 +33,12 @@ func NewConfig() *Config {
 			Port:     "64738",
 		},
 		Cache: cacheConfig{
-			Directory: "cache",
+			Directory:   "~/.cache/mumble-jukebox/",
+			MaxFilesize: "100m",
+			MaxSize:     10,
+		},
+		Queue: queueConfig{
+			MaxSize: 50,
 		},
 	}
 }

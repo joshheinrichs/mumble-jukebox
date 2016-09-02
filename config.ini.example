@@ -2,6 +2,7 @@
 username=Jukebox
 address=www.example.com
 port=64738
-
 [cache]
-directory=cache
+maxsize=10
+[queue]
+maxsize=50

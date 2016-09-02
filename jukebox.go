@@ -12,28 +12,31 @@ import (
 )
 
 var ErrVolumeOutsideRange = errors.New("Volume must be set to a value between 0 and 1")
+var ErrQueueFull = errors.New("Queue is full")
 
 type Jukebox struct {
-	rwMutex         sync.RWMutex
-	client          *gumble.Client
-	stream          *gumbleffmpeg.Stream
-	volume          float32
-	playQueue       *list.List
-	playChannel     chan bool
-	downloadQueue   *list.List
-	downloadChannel chan bool
+	rwMutex        sync.RWMutex
+	client         *gumble.Client
+	stream         *gumbleffmpeg.Stream
+	volume         float32
+	playQueue      *list.List
+	playChannel    chan bool
+	downloadQueue  *list.List
+	roomToDownload chan bool
+	songToDownload chan bool
 }
 
 // NewJukebox returns a new jukebox.
 func NewJukebox(client *gumble.Client) *Jukebox {
 	jukebox := Jukebox{
-		client:          client,
-		stream:          nil,
-		volume:          1.0,
-		playQueue:       list.New(),
-		playChannel:     make(chan bool),
-		downloadQueue:   list.New(),
-		downloadChannel: make(chan bool),
+		client:         client,
+		stream:         nil,
+		volume:         1.0,
+		playQueue:      list.New(),
+		playChannel:    make(chan bool),
+		downloadQueue:  list.New(),
+		roomToDownload: make(chan bool),
+		songToDownload: make(chan bool),
 	}
 	go jukebox.playThread()
 	go jukebox.downloadThread()
@@ -57,6 +60,9 @@ func (jukebox *Jukebox) playThread() {
 
 		jukebox.rwMutex.Lock()
 		jukebox.playQueue.Remove(jukebox.playQueue.Front())
+		if jukebox.playQueue.Len() == config.Queue.MaxSize-1 {
+			go func() { jukebox.roomToDownload <- true }()
+		}
 		jukebox.rwMutex.Unlock()
 	}
 }
@@ -89,10 +95,16 @@ func (jukebox *Jukebox) playSong(song *Song) {
 func (jukebox *Jukebox) downloadThread() {
 	for {
 		jukebox.rwMutex.Lock()
+		if jukebox.playQueue.Len() >= config.Cache.MaxSize {
+			log.Println("Maximum number of downloads reached")
+			jukebox.rwMutex.Unlock()
+			_ = <-jukebox.roomToDownload
+			jukebox.rwMutex.Lock()
+		}
 		if jukebox.downloadQueue.Len() == 0 {
 			log.Println("Nothing to download")
 			jukebox.rwMutex.Unlock()
-			_ = <-jukebox.downloadChannel
+			_ = <-jukebox.songToDownload
 			jukebox.rwMutex.Lock()
 		}
 		song, _ := jukebox.downloadQueue.Front().Value.(*Song)
@@ -122,9 +134,12 @@ func (jukebox *Jukebox) downloadThread() {
 func (jukebox *Jukebox) Add(song *Song) error {
 	jukebox.rwMutex.Lock()
 	defer jukebox.rwMutex.Unlock()
+	if jukebox.downloadQueue.Len() >= config.Queue.MaxSize {
+		return ErrQueueFull
+	}
 	jukebox.downloadQueue.PushBack(song)
 	if jukebox.downloadQueue.Len() == 1 {
-		go func() { jukebox.downloadChannel <- true }()
+		go func() { jukebox.songToDownload <- true }()
 	}
 	return nil
 }
