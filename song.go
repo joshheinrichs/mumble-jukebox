@@ -47,7 +47,7 @@ func (song *Song) Download() error {
 	song.rwMutex.RUnlock()
 
 	id := uuid.New()
-	songpath, err := filepath.Abs(fmt.Sprintf("%s/%s.%%(ext)s", config.Cache.Directory, id))
+	songpath, err := filepath.Abs(fmt.Sprintf("%s/%s.mp3", config.Cache.Directory, id))
 	if err != nil {
 		return err
 	}
