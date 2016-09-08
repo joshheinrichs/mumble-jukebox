@@ -1,6 +1,12 @@
 package main
 
-import "gopkg.in/ini.v1"
+import (
+	"fmt"
+	"log"
+	"os/user"
+
+	"gopkg.in/ini.v1"
+)
 
 type Config struct {
 	Mumble mumbleConfig `ini:"mumble"`
@@ -27,13 +33,17 @@ type queueConfig struct {
 
 // NewConfig returns a new config with default settings.
 func NewConfig() *Config {
+	usr, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
 	return &Config{
 		Mumble: mumbleConfig{
 			Username: "Jukebox",
 			Port:     "64738",
 		},
 		Cache: cacheConfig{
-			Directory:   "~/.cache/mumble-jukebox",
+			Directory:   fmt.Sprintf("%s/.cache/mumble-jukebox", usr.HomeDir),
 			MaxFilesize: "100m",
 			MaxSize:     10,
 		},
