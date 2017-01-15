@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/layeh/gumble/gumble"
-	"github.com/layeh/gumble/gumbleutil"
+	"layeh.com/gumble/gumble"
+	"layeh.com/gumble/gumbleutil"
 	"golang.org/x/net/html"
 )
 

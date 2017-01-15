@@ -1,0 +1,6 @@
+[submodule "vendor/layeh.com/gumble"]
+	path = vendor/layeh.com/gumble
+	url = https://github.com/layeh/gumble
+[submodule "vendor/github.com/pborman/uuid"]
+	path = vendor/github.com/pborman/uuid
+	url = https://github.com/pborman/uuid

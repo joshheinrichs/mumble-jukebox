@@ -6,9 +6,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/layeh/gumble/gumble"
-	"github.com/layeh/gumble/gumbleffmpeg"
-	_ "github.com/layeh/gumble/opus"
+	"layeh.com/gumble/gumble"
+	"layeh.com/gumble/gumbleffmpeg"
+	_ "layeh.com/gumble/opus"
 )
 
 var ErrVolumeOutsideRange = errors.New("Volume must be set to a value between 0 and 1")

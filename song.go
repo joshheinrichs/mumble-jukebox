@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/layeh/gumble/gumble"
+	"layeh.com/gumble/gumble"
 	"github.com/pborman/uuid"
 )
 
